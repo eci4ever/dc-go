@@ -1,59 +1,68 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getUsers, deleteUser, type User } from '@/api/users'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+import { createFileRoute } from '@tanstack/react-router'
+import { useQuery } from '@tanstack/react-query'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+
+interface HealthStatus {
+  status: string
+  db: string
+  latency: string
+}
 
 export const Route = createFileRoute('/')({
-  component: UsersList,
+  component: Dashboard,
 })
 
-function UsersList() {
-  const queryClient = useQueryClient()
-
-  const { data: users, isLoading } = useQuery<User[]>({
-    queryKey: ['users'],
-    queryFn: getUsers,
+function Dashboard() {
+  const { data: health } = useQuery<HealthStatus>({
+    queryKey: ['health'],
+    queryFn: () => fetch('/api/health').then((r) => r.json()),
+    refetchInterval: 5000,
   })
-
-  const deleteMutation = useMutation({
-    mutationFn: deleteUser,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['users'] }),
-  })
-
-  if (isLoading) return <p className="text-muted-foreground">Loading...</p>
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Users</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <ul className="space-y-2">
-          {users?.map((u: User) => (
-            <li key={u.id} className="flex items-center justify-between rounded-lg border p-3">
-              <span>
-                <span className="font-medium">{u.name}</span>
-                <span className="text-muted-foreground ml-2">- {u.email}</span>
-              </span>
-              <span className="flex gap-2">
-                <Button asChild variant="outline" size="sm">
-                  <Link to="/users/$userId/edit" params={{ userId: String(u.id) }}>
-                    Edit
-                  </Link>
-                </Button>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => deleteMutation.mutate(u.id)}
-                >
-                  Delete
-                </Button>
-              </span>
-            </li>
-          ))}
-        </ul>
-      </CardContent>
-    </Card>
+    <div className="flex flex-col gap-6">
+      <h1 className="text-2xl font-bold">Dashboard</h1>
+
+      <div className="grid grid-cols-3 gap-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <span className={`size-2 rounded-full ${health?.status === 'running' ? 'bg-green-500' : 'bg-red-500'}`} />
+              API
+            </CardTitle>
+            <CardDescription>Server status</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-lg font-semibold capitalize">{health?.status ?? 'checking...'}</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <span className={`size-2 rounded-full ${health?.db === 'connected' ? 'bg-green-500' : 'bg-red-500'}`} />
+              Database
+            </CardTitle>
+            <CardDescription>PostgreSQL connection</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-lg font-semibold capitalize">{health?.db ?? 'checking...'}</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <span className="size-2 rounded-full bg-blue-500" />
+              Latency
+            </CardTitle>
+            <CardDescription>DB response time</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-lg font-semibold">{health?.latency ?? '...'}</p>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
   )
 }

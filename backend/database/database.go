@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -30,19 +31,14 @@ func Connect() {
 	fmt.Println("Connected to PostgreSQL")
 }
 
-func InitSchema() {
-	schema := `
-	CREATE TABLE IF NOT EXISTS users (
-		id SERIAL PRIMARY KEY,
-		name VARCHAR(100) NOT NULL,
-		email VARCHAR(100) UNIQUE NOT NULL
-	);
-	`
-	_, err := Pool.Exec(context.Background(), schema)
+func Ping() (string, int64, error) {
+	start := time.Now()
+	err := Pool.Ping(context.Background())
+	latency := time.Since(start).Milliseconds()
 	if err != nil {
-		log.Fatalf("Failed to initialize schema: %v", err)
+		return "disconnected", latency, err
 	}
-	fmt.Println("Database schema initialized")
+	return "connected", latency, nil
 }
 
 func Close() {

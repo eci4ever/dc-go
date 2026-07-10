@@ -13,18 +13,13 @@ import (
 
 func main() {
 	database.Connect()
-	database.InitSchema()
 	defer database.Close()
 
 	app := fiber.New()
 	app.Use(cors.New())
 
 	api := app.Group("/api")
-	api.Get("/users", handlers.GetUsers)
-	api.Get("/users/:id", handlers.GetUser)
-	api.Post("/users", handlers.CreateUser)
-	api.Put("/users/:id", handlers.UpdateUser)
-	api.Delete("/users/:id", handlers.DeleteUser)
+	api.Get("/health", handlers.HealthCheck)
 
 	staticDir := os.Getenv("STATIC_DIR")
 	if staticDir == "" {

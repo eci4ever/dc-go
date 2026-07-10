@@ -10,53 +10,33 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as UsersNewRouteImport } from './routes/users/new'
-import { Route as UsersUserIdEditRouteImport } from './routes/users/$userId/edit'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const UsersNewRoute = UsersNewRouteImport.update({
-  id: '/users/new',
-  path: '/users/new',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const UsersUserIdEditRoute = UsersUserIdEditRouteImport.update({
-  id: '/users/$userId/edit',
-  path: '/users/$userId/edit',
-  getParentRoute: () => rootRouteImport,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/users/new': typeof UsersNewRoute
-  '/users/$userId/edit': typeof UsersUserIdEditRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/users/new': typeof UsersNewRoute
-  '/users/$userId/edit': typeof UsersUserIdEditRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/users/new': typeof UsersNewRoute
-  '/users/$userId/edit': typeof UsersUserIdEditRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/users/new' | '/users/$userId/edit'
+  fullPaths: '/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/users/new' | '/users/$userId/edit'
-  id: '__root__' | '/' | '/users/new' | '/users/$userId/edit'
+  to: '/'
+  id: '__root__' | '/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  UsersNewRoute: typeof UsersNewRoute
-  UsersUserIdEditRoute: typeof UsersUserIdEditRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -68,27 +48,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/users/new': {
-      id: '/users/new'
-      path: '/users/new'
-      fullPath: '/users/new'
-      preLoaderRoute: typeof UsersNewRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/users/$userId/edit': {
-      id: '/users/$userId/edit'
-      path: '/users/$userId/edit'
-      fullPath: '/users/$userId/edit'
-      preLoaderRoute: typeof UsersUserIdEditRouteImport
-      parentRoute: typeof rootRouteImport
-    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  UsersNewRoute: UsersNewRoute,
-  UsersUserIdEditRoute: UsersUserIdEditRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
