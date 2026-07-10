@@ -28,7 +28,7 @@ function LandingPage() {
     isLoading ? "Checking…" : isError ? "Unavailable" : String(current ?? "Unknown");
 
   return (
-    <main className="flex min-h-svh items-center justify-center bg-gradient-to-b from-background to-muted/40 p-6">
+    <main className="flex min-h-svh items-center justify-center bg-linear-to-b from-background to-muted/40 p-6">
       <section className="w-full max-w-4xl space-y-10">
         <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
           <div className="space-y-2">
