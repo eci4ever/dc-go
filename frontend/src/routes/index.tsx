@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -22,13 +22,12 @@ export const Route = createFileRoute('/')({
 
 function Dashboard() {
   const { user, loading, logout } = useAuth()
-  const navigate = useNavigate()
 
   useEffect(() => {
     if (!loading && !user) {
-      navigate({ to: '/login' })
+      window.location.href = '/login'
     }
-  }, [user, loading, navigate])
+  }, [user, loading])
 
   const { data: health } = useQuery<HealthResponse>({
     queryKey: ['health'],

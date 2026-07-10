@@ -1,5 +1,4 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
-import { useNavigate } from '@tanstack/react-router'
 import * as api from '@/lib/api'
 import type { User } from '@/lib/api'
 
@@ -18,7 +17,6 @@ const AuthCtx = createContext<AuthContext | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({ user: null, loading: true })
-  const navigate = useNavigate()
 
   const fetchSession = useCallback(async () => {
     const token = localStorage.getItem('accessToken')
@@ -58,8 +56,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(async () => {
     await api.logout()
     setState({ user: null, loading: false })
-    navigate({ to: '/login' })
-  }, [navigate])
+    window.location.href = '/login'
+  }, [])
 
   return (
     <AuthCtx value={{ ...state, login, register, logout }}>
