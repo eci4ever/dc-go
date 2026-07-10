@@ -1,81 +1,38 @@
 import { useState } from 'react'
-import { createFileRoute, Link } from '@tanstack/react-router'
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
+import { createFileRoute } from '@tanstack/react-router'
+import { LoginForm } from '@/components/login-form'
 import { useAuth } from '@/hooks/use-auth'
+import { GalleryVerticalEnd } from 'lucide-react'
 
-export const Route = createFileRoute('/login')({
-  component: LoginPage,
-})
+export const Route = createFileRoute('/login')({ component: LoginPage })
 
 function LoginPage() {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const { login } = useAuth()
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setError(null)
     setSubmitting(true)
-    const err = await login(email, password)
+    const form = new FormData(e.currentTarget)
+    const err = await login(String(form.get('email') ?? ''), String(form.get('password') ?? ''))
     setSubmitting(false)
-    if (err) {
-      setError(err)
-    } else {
-      window.location.href = '/'
-    }
+    if (err) setError(err)
+    else window.location.href = '/'
   }
 
   return (
-    <div className="flex flex-1 items-center justify-center">
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle>Sign in</CardTitle>
-          <CardDescription>Enter your credentials to continue</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            {error && (
-              <p className="text-sm text-destructive">{error}</p>
-            )}
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
-            <Button type="submit" disabled={submitting}>
-              {submitting ? 'Signing in...' : 'Sign in'}
-            </Button>
-            <p className="text-center text-sm text-muted-foreground">
-              Don&apos;t have an account?{' '}
-              <Link to="/signup" className="text-primary underline-offset-4 hover:underline">
-                Sign up
-              </Link>
-            </p>
-          </form>
-        </CardContent>
-      </Card>
+    <div className="flex min-h-svh flex-col items-center justify-center gap-6 bg-muted p-6 md:p-10">
+      <div className="flex w-full max-w-sm flex-col gap-6">
+        <a href="#" className="flex items-center gap-2 self-center font-medium">
+          <div className="flex size-6 items-center justify-center rounded-md bg-primary text-primary-foreground">
+            <GalleryVerticalEnd className="size-4" />
+          </div>
+          DC Express
+        </a>
+        <LoginForm onSubmit={handleSubmit} error={error} submitting={submitting} />
+      </div>
     </div>
   )
 }

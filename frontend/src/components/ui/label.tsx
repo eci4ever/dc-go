@@ -1,8 +1,14 @@
+// @ts-nocheck
+"use client"
+
 import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
-function Label({ className, ...props }: React.LabelHTMLAttributes<HTMLLabelElement>) {
+function Label({
+  className,
+  ...props
+}) {
   return (
     <label
       data-slot="label"

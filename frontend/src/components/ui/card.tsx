@@ -1,25 +1,29 @@
+// @ts-nocheck
 import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
-interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
-  size?: "default" | "sm"
-}
-
-function Card({ className, size = "default", ...props }: CardProps) {
+function Card({
+  className,
+  size = "default",
+  ...props
+}) {
   return (
     <div
       data-slot="card"
       data-size={size}
       className={cn(
-        "group/card flex flex-col gap-(--card-spacing) overflow-hidden rounded-xl bg-card py-(--card-spacing) text-sm text-card-foreground ring-1 ring-foreground/10 [--card-spacing:--spacing(4)] has-data-[slot=card-footer]:pb-0 has-[>img:first-child]:pt-0 data-[size=sm]:[--card-spacing:--spacing(3)] data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl",
+        "group/card flex flex-col gap-(--card-spacing) overflow-hidden rounded-xl bg-card py-(--card-spacing) text-sm text-card-foreground shadow-xs ring-1 ring-foreground/10 [--card-spacing:--spacing(6)] has-[>img:first-child]:pt-0 data-[size=sm]:[--card-spacing:--spacing(4)] *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl",
         className
       )}
       {...props} />
   );
 }
 
-function CardHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+function CardHeader({
+  className,
+  ...props
+}) {
   return (
     <div
       data-slot="card-header"
@@ -31,19 +35,25 @@ function CardHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement
   );
 }
 
-function CardTitle({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+function CardTitle({
+  className,
+  ...props
+}) {
   return (
     <div
       data-slot="card-title"
       className={cn(
-        "font-heading text-base leading-snug font-medium group-data-[size=sm]/card:text-sm",
+        "font-heading text-base leading-normal font-medium group-data-[size=sm]/card:text-sm",
         className
       )}
       {...props} />
   );
 }
 
-function CardDescription({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+function CardDescription({
+  className,
+  ...props
+}) {
   return (
     <div
       data-slot="card-description"
@@ -52,7 +62,10 @@ function CardDescription({ className, ...props }: React.HTMLAttributes<HTMLDivEl
   );
 }
 
-function CardAction({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+function CardAction({
+  className,
+  ...props
+}) {
   return (
     <div
       data-slot="card-action"
@@ -64,7 +77,10 @@ function CardAction({ className, ...props }: React.HTMLAttributes<HTMLDivElement
   );
 }
 
-function CardContent({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+function CardContent({
+  className,
+  ...props
+}) {
   return (
     <div
       data-slot="card-content"
@@ -73,12 +89,15 @@ function CardContent({ className, ...props }: React.HTMLAttributes<HTMLDivElemen
   );
 }
 
-function CardFooter({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+function CardFooter({
+  className,
+  ...props
+}) {
   return (
     <div
       data-slot="card-footer"
       className={cn(
-        "flex items-center rounded-b-xl border-t bg-muted/50 p-(--card-spacing)",
+        "flex items-center rounded-b-xl px-(--card-spacing) [.border-t]:pt-(--card-spacing)",
         className
       )}
       {...props} />

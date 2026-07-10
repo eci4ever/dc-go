@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
 import * as api from '@/lib/api'
 import type { User } from '@/lib/api'

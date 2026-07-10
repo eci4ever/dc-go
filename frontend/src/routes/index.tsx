@@ -1,107 +1,63 @@
-import { useEffect } from 'react'
-import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { createFileRoute } from '@tanstack/react-router'
+import { Link } from '@tanstack/react-router'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { useAuth } from '@/hooks/use-auth'
-
-interface HealthData {
-  status: string
-  db: string
-  latency: number
-}
 
 interface HealthResponse {
   success: boolean
-  data: HealthData
+  data?: {
+    status: string
+    db: string
+    latency: number
+  }
 }
 
-export const Route = createFileRoute('/')({
-  component: Dashboard,
-})
+export const Route = createFileRoute('/')({ component: LandingPage })
 
-function Dashboard() {
-  const { user, loading, logout } = useAuth()
-
-  useEffect(() => {
-    if (!loading && !user) {
-      window.location.href = '/login'
-    }
-  }, [user, loading])
-
-  const { data: health } = useQuery<HealthResponse>({
+function LandingPage() {
+  const { data, isLoading, isError } = useQuery<HealthResponse>({
     queryKey: ['health'],
-    queryFn: () => fetch('/api/v1/health').then((r) => r.json()),
+    queryFn: () => fetch('/api/v1/health').then((response) => response.json()),
     refetchInterval: 5000,
   })
 
-  if (loading) {
-    return <p className="text-center text-muted-foreground">Loading...</p>
-  }
-
-  if (!user) {
-    return null
-  }
-
-  const d = health?.data
+  const health = data?.data
+  const value = (current: string | number | undefined) =>
+    isLoading ? 'Checking…' : isError ? 'Unavailable' : String(current ?? 'Unknown')
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Dashboard</h1>
-        <Button variant="outline" onClick={logout}>Sign out</Button>
-      </div>
+    <main className="flex min-h-svh items-center justify-center bg-gradient-to-b from-background to-muted/40 p-6">
+      <section className="w-full max-w-4xl space-y-10">
+        <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+          <div className="space-y-2">
+            <p className="text-sm font-medium uppercase tracking-[0.2em] text-primary">DC Express</p>
+            <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">Everything is running smoothly.</h1>
+            <p className="max-w-xl text-muted-foreground">A simple, reliable foundation for your next project.</p>
+          </div>
+          <div className="flex gap-3">
+            <Button variant="outline" asChild><Link to="/login">Log in</Link></Button>
+            <Button asChild><Link to="/signup">Create account</Link></Button>
+          </div>
+        </div>
+        <div className="space-y-3">
+          <p className="text-sm font-medium text-muted-foreground">Live service status</p>
+          <div className="grid gap-4 md:grid-cols-3">
+          <StatusCard label="API status" value={value(health?.status)} />
+          <StatusCard label="Database status" value={value(health?.db)} />
+          <StatusCard label="Database latency" value={isLoading || isError ? value(undefined) : `${health?.latency ?? '—'} ms`} />
+          </div>
+        </div>
+      </section>
+    </main>
+  )
+}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{user.name}</CardTitle>
-          <CardDescription>{user.email}</CardDescription>
-        </CardHeader>
-        <CardContent className="text-sm text-muted-foreground">
-          Joined {new Date(user.created_at).toLocaleDateString()}
-        </CardContent>
-      </Card>
-
-      <div className="grid grid-cols-3 gap-4">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <span className={`size-2 rounded-full ${d?.status === 'running' ? 'bg-green-500' : 'bg-red-500'}`} />
-              API
-            </CardTitle>
-            <CardDescription>Server status</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-lg font-semibold capitalize">{d?.status ?? 'checking...'}</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <span className={`size-2 rounded-full ${d?.db === 'connected' ? 'bg-green-500' : 'bg-red-500'}`} />
-              Database
-            </CardTitle>
-            <CardDescription>PostgreSQL connection</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-lg font-semibold capitalize">{d?.db ?? 'checking...'}</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <span className="size-2 rounded-full bg-blue-500" />
-              Latency
-            </CardTitle>
-            <CardDescription>DB response time</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-lg font-semibold">{d ? `${d.latency}ms` : '...'}</p>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
+function StatusCard({ label, value }: { label: string; value: string }) {
+  return (
+    <Card>
+      <CardHeader><CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground"><span className={`size-2 rounded-full ${value === 'Unavailable' ? 'bg-destructive' : 'bg-emerald-500'}`} />{label}</CardTitle></CardHeader>
+      <CardContent><p className="text-2xl font-semibold capitalize">{value}</p></CardContent>
+    </Card>
   )
 }
