@@ -8,6 +8,9 @@ import (
 	"syscall"
 
 	"dc-express/configs"
+	"dc-express/internal/auth"
+	"dc-express/internal/organization"
+	"dc-express/internal/team"
 	"dc-express/internal/user"
 	"dc-express/pkg/database"
 	"dc-express/pkg/logger"
@@ -32,9 +35,26 @@ func main() {
 
 	database.RunMigrations(ctx, pool)
 
+	// Repositories
 	userRepo := user.NewRepository(pool)
+	authRepo := auth.NewRepository(pool)
+	orgRepo := organization.NewRepository(pool)
+	teamRepo := team.NewRepository(pool)
+
+	// JWT
+	jwtSvc := auth.NewJWTService(cfg.JWTSecret, cfg.JWTIssuer, cfg.JWTAudience)
+
+	// Services
 	userSvc := user.NewService(userRepo)
+	authSvc := auth.NewService(authRepo, jwtSvc, userRepo)
+	orgSvc := organization.NewService(orgRepo)
+	teamSvc := team.NewService(teamRepo)
+
+	// Handlers
 	userHdl := user.NewHandler(userSvc)
+	authHdl := auth.NewHandler(authSvc)
+	orgHdl := organization.NewHandler(orgSvc)
+	teamHdl := team.NewHandler(teamSvc)
 
 	app := fiber.New(fiber.Config{
 		DisableStartupMessage: false,
@@ -58,7 +78,14 @@ func main() {
 		}))
 	})
 
-	user.RegisterRoutes(v1, userHdl)
+	// Auth middleware
+	authMw := auth.AuthMiddleware(jwtSvc)
+
+	// Register routes
+	user.RegisterRoutes(v1, userHdl, authMw)
+	auth.RegisterRoutes(v1, authHdl, authMw)
+	organization.RegisterRoutes(v1, orgHdl, authMw)
+	team.RegisterRoutes(v1, teamHdl, authMw)
 
 	staticDir := os.Getenv("STATIC_DIR")
 	if staticDir == "" {

@@ -2,7 +2,6 @@ package user
 
 import (
 	"errors"
-	"strconv"
 
 	"dc-express/pkg/response"
 
@@ -17,30 +16,13 @@ func NewHandler(svc *Service) *Handler {
 	return &Handler{svc: svc}
 }
 
-func (h *Handler) Create(c *fiber.Ctx) error {
-	var req CreateUserRequest
-	if err := c.BodyParser(&req); err != nil {
-		return c.Status(400).JSON(response.Error("invalid request body"))
-	}
-
-	u, err := h.svc.Create(c.UserContext(), req)
-	if err != nil {
-		if errors.Is(err, ErrEmailExists) {
-			return c.Status(409).JSON(response.Error("email already exists"))
-		}
-		return c.Status(500).JSON(response.Error("internal server error"))
-	}
-
-	return c.Status(201).JSON(response.Created(u))
-}
-
 func (h *Handler) GetByID(c *fiber.Ctx) error {
-	id, err := strconv.Atoi(c.Params("id"))
-	if err != nil {
+	id := c.Params("id")
+	if id == "" {
 		return c.Status(400).JSON(response.Error("invalid id"))
 	}
 
-	u, err := h.svc.GetByID(c.UserContext(), int32(id))
+	u, err := h.svc.GetByID(c.UserContext(), id)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			return c.Status(404).JSON(response.NotFound())
@@ -61,8 +43,8 @@ func (h *Handler) List(c *fiber.Ctx) error {
 }
 
 func (h *Handler) Update(c *fiber.Ctx) error {
-	id, err := strconv.Atoi(c.Params("id"))
-	if err != nil {
+	id := c.Params("id")
+	if id == "" {
 		return c.Status(400).JSON(response.Error("invalid id"))
 	}
 
@@ -71,7 +53,7 @@ func (h *Handler) Update(c *fiber.Ctx) error {
 		return c.Status(400).JSON(response.Error("invalid request body"))
 	}
 
-	u, err := h.svc.Update(c.UserContext(), int32(id), req)
+	u, err := h.svc.Update(c.UserContext(), id, req)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			return c.Status(404).JSON(response.NotFound())
@@ -83,12 +65,12 @@ func (h *Handler) Update(c *fiber.Ctx) error {
 }
 
 func (h *Handler) Delete(c *fiber.Ctx) error {
-	id, err := strconv.Atoi(c.Params("id"))
-	if err != nil {
+	id := c.Params("id")
+	if id == "" {
 		return c.Status(400).JSON(response.Error("invalid id"))
 	}
 
-	if err := h.svc.Delete(c.UserContext(), int32(id)); err != nil {
+	if err := h.svc.Delete(c.UserContext(), id); err != nil {
 		if errors.Is(err, ErrNotFound) {
 			return c.Status(404).JSON(response.NotFound())
 		}

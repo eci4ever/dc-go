@@ -8,10 +8,99 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type User struct {
-	ID        int32              `json:"id"`
+type Account struct {
+	ID                    string             `json:"id"`
+	AccountID             string             `json:"account_id"`
+	ProviderID            string             `json:"provider_id"`
+	UserID                string             `json:"user_id"`
+	AccessToken           pgtype.Text        `json:"access_token"`
+	RefreshToken          pgtype.Text        `json:"refresh_token"`
+	IDToken               pgtype.Text        `json:"id_token"`
+	AccessTokenExpiresAt  pgtype.Timestamptz `json:"access_token_expires_at"`
+	RefreshTokenExpiresAt pgtype.Timestamptz `json:"refresh_token_expires_at"`
+	Scope                 pgtype.Text        `json:"scope"`
+	Password              pgtype.Text        `json:"password"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
+}
+
+type Invitation struct {
+	ID             string             `json:"id"`
+	OrganizationID string             `json:"organization_id"`
+	Email          string             `json:"email"`
+	Role           pgtype.Text        `json:"role"`
+	TeamID         pgtype.Text        `json:"team_id"`
+	Status         string             `json:"status"`
+	ExpiresAt      pgtype.Timestamptz `json:"expires_at"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	InviterID      string             `json:"inviter_id"`
+}
+
+type Member struct {
+	ID             string             `json:"id"`
+	OrganizationID string             `json:"organization_id"`
+	UserID         string             `json:"user_id"`
+	Role           string             `json:"role"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
+type Organization struct {
+	ID        string             `json:"id"`
 	Name      string             `json:"name"`
-	Email     string             `json:"email"`
+	Slug      string             `json:"slug"`
+	Logo      pgtype.Text        `json:"logo"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+	Metadata  pgtype.Text        `json:"metadata"`
+}
+
+type Session struct {
+	ID                   string             `json:"id"`
+	ExpiresAt            pgtype.Timestamptz `json:"expires_at"`
+	Token                string             `json:"token"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+	IpAddress            pgtype.Text        `json:"ip_address"`
+	UserAgent            pgtype.Text        `json:"user_agent"`
+	UserID               string             `json:"user_id"`
+	ImpersonatedBy       pgtype.Text        `json:"impersonated_by"`
+	ActiveOrganizationID pgtype.Text        `json:"active_organization_id"`
+	ActiveTeamID         pgtype.Text        `json:"active_team_id"`
+}
+
+type Team struct {
+	ID             string             `json:"id"`
+	Name           string             `json:"name"`
+	OrganizationID string             `json:"organization_id"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+type TeamMember struct {
+	ID        string             `json:"id"`
+	TeamID    string             `json:"team_id"`
+	UserID    string             `json:"user_id"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type User struct {
+	ID            string             `json:"id"`
+	Name          string             `json:"name"`
+	Email         string             `json:"email"`
+	EmailVerified bool               `json:"email_verified"`
+	Image         pgtype.Text        `json:"image"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	Role          pgtype.Text        `json:"role"`
+	Banned        pgtype.Bool        `json:"banned"`
+	BanReason     pgtype.Text        `json:"ban_reason"`
+	BanExpires    pgtype.Timestamptz `json:"ban_expires"`
+}
+
+type Verification struct {
+	ID         string             `json:"id"`
+	Identifier string             `json:"identifier"`
+	Value      string             `json:"value"`
+	ExpiresAt  pgtype.Timestamptz `json:"expires_at"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
 }

@@ -9,10 +9,51 @@ import (
 )
 
 type Querier interface {
+	CreateAccount(ctx context.Context, arg CreateAccountParams) (Account, error)
+	CreateInvitation(ctx context.Context, arg CreateInvitationParams) (Invitation, error)
+	CreateMember(ctx context.Context, arg CreateMemberParams) (Member, error)
+	CreateOrganization(ctx context.Context, arg CreateOrganizationParams) (Organization, error)
+	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)
+	CreateTeam(ctx context.Context, arg CreateTeamParams) (Team, error)
+	CreateTeamMember(ctx context.Context, arg CreateTeamMemberParams) (TeamMember, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
-	DeleteUser(ctx context.Context, id int32) error
-	GetUser(ctx context.Context, id int32) (User, error)
+	CreateVerification(ctx context.Context, arg CreateVerificationParams) (Verification, error)
+	DeleteExpiredSessions(ctx context.Context) error
+	DeleteExpiredVerifications(ctx context.Context) error
+	DeleteInvitation(ctx context.Context, id string) error
+	DeleteMember(ctx context.Context, arg DeleteMemberParams) error
+	DeleteOrganization(ctx context.Context, id string) error
+	DeleteSession(ctx context.Context, id string) error
+	DeleteSessionByToken(ctx context.Context, token string) error
+	DeleteTeam(ctx context.Context, id string) error
+	DeleteTeamMember(ctx context.Context, arg DeleteTeamMemberParams) error
+	DeleteUser(ctx context.Context, id string) error
+	DeleteVerification(ctx context.Context, id string) error
+	GetAccountByProvider(ctx context.Context, arg GetAccountByProviderParams) (Account, error)
+	GetAccountsByUserID(ctx context.Context, userID string) ([]Account, error)
+	GetInvitation(ctx context.Context, id string) (Invitation, error)
+	GetMember(ctx context.Context, arg GetMemberParams) (Member, error)
+	GetOrganization(ctx context.Context, id string) (Organization, error)
+	GetOrganizationBySlug(ctx context.Context, slug string) (Organization, error)
+	GetSessionByToken(ctx context.Context, token string) (Session, error)
+	GetTeam(ctx context.Context, id string) (Team, error)
+	GetTeamMember(ctx context.Context, arg GetTeamMemberParams) (TeamMember, error)
+	GetUser(ctx context.Context, id string) (User, error)
+	GetUserByEmail(ctx context.Context, email string) (User, error)
+	GetVerification(ctx context.Context, arg GetVerificationParams) (Verification, error)
+	ListInvitationsByEmail(ctx context.Context, email string) ([]Invitation, error)
+	ListInvitationsByOrganizationID(ctx context.Context, organizationID string) ([]Invitation, error)
+	ListMembersByOrganizationID(ctx context.Context, organizationID string) ([]ListMembersByOrganizationIDRow, error)
+	ListOrganizationsByUserID(ctx context.Context, userID string) ([]Organization, error)
+	ListSessionsByUserID(ctx context.Context, userID string) ([]Session, error)
+	ListTeamMembers(ctx context.Context, teamID string) ([]ListTeamMembersRow, error)
+	ListTeamsByOrganizationID(ctx context.Context, organizationID string) ([]Team, error)
 	ListUsers(ctx context.Context) ([]User, error)
+	UpdateAccountPassword(ctx context.Context, arg UpdateAccountPasswordParams) (Account, error)
+	UpdateInvitationStatus(ctx context.Context, arg UpdateInvitationStatusParams) (Invitation, error)
+	UpdateMemberRole(ctx context.Context, arg UpdateMemberRoleParams) (Member, error)
+	UpdateOrganization(ctx context.Context, arg UpdateOrganizationParams) (Organization, error)
+	UpdateTeam(ctx context.Context, arg UpdateTeamParams) (Team, error)
 	UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error)
 }
 
