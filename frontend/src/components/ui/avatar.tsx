@@ -4,7 +4,11 @@ import { Avatar as AvatarPrimitive } from "radix-ui";
 
 import { cn } from "@/lib/utils";
 
-function Avatar({ className, size = "default", ...props }) {
+function Avatar({
+  className,
+  size = "default",
+  ...props
+}: React.ComponentProps<typeof AvatarPrimitive.Root> & { size?: "default" | "sm" | "lg" }) {
   return (
     <AvatarPrimitive.Root
       data-slot="avatar"
@@ -18,7 +22,7 @@ function Avatar({ className, size = "default", ...props }) {
   );
 }
 
-function AvatarImage({ className, ...props }) {
+function AvatarImage({ className, ...props }: React.ComponentProps<typeof AvatarPrimitive.Image>) {
   return (
     <AvatarPrimitive.Image
       data-slot="avatar-image"
@@ -28,7 +32,10 @@ function AvatarImage({ className, ...props }) {
   );
 }
 
-function AvatarFallback({ className, ...props }) {
+function AvatarFallback({
+  className,
+  ...props
+}: React.ComponentProps<typeof AvatarPrimitive.Fallback>) {
   return (
     <AvatarPrimitive.Fallback
       data-slot="avatar-fallback"

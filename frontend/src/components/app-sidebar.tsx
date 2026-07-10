@@ -1,10 +1,7 @@
-// @ts-nocheck
-"use client";
-
-import * as React from "react";
+import type { ComponentProps } from "react";
+import { LayoutDashboardIcon, UsersIcon } from "lucide-react";
 
 import { NavMain } from "@/components/nav-main";
-import { NavProjects } from "@/components/nav-projects";
 import { NavUser } from "@/components/nav-user";
 import { OrganizationSwitcher } from "@/components/team-switcher";
 import {
@@ -14,171 +11,42 @@ import {
   SidebarHeader,
   SidebarRail,
 } from "@/components/ui/sidebar";
-import {
-  GalleryVerticalEndIcon,
-  AudioLinesIcon,
-  TerminalIcon,
-  TerminalSquareIcon,
-  BotIcon,
-  BookOpenIcon,
-  Settings2Icon,
-  FrameIcon,
-  PieChartIcon,
-  MapIcon,
-} from "lucide-react";
+import type { SessionData, User } from "@/lib/api";
 
-// This is sample data.
-const data = {
-  user: {
-    name: "shadcn",
-    email: "m@example.com",
-    avatar: "/avatars/shadcn.jpg",
+interface AppSidebarProps extends ComponentProps<typeof Sidebar> {
+  user: User;
+  session: SessionData;
+  onLogout: () => Promise<void>;
+}
+
+const overviewItems = [
+  {
+    title: "Dashboard",
+    url: "/dashboard" as const,
+    icon: LayoutDashboardIcon,
   },
-  teams: [
-    {
-      name: "Acme Inc",
-      logo: <GalleryVerticalEndIcon />,
-      plan: "Enterprise",
-    },
-    {
-      name: "Acme Corp.",
-      logo: <AudioLinesIcon />,
-      plan: "Startup",
-    },
-    {
-      name: "Evil Corp.",
-      logo: <TerminalIcon />,
-      plan: "Free",
-    },
-  ],
-  navMain: [
-    {
-      title: "Playground",
-      url: "#",
-      icon: <TerminalSquareIcon />,
-      isActive: true,
-      items: [
-        {
-          title: "History",
-          url: "#",
-        },
-        {
-          title: "Starred",
-          url: "#",
-        },
-        {
-          title: "Settings",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Models",
-      url: "#",
-      icon: <BotIcon />,
-      items: [
-        {
-          title: "Genesis",
-          url: "#",
-        },
-        {
-          title: "Explorer",
-          url: "#",
-        },
-        {
-          title: "Quantum",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Documentation",
-      url: "#",
-      icon: <BookOpenIcon />,
-      items: [
-        {
-          title: "Introduction",
-          url: "#",
-        },
-        {
-          title: "Get Started",
-          url: "#",
-        },
-        {
-          title: "Tutorials",
-          url: "#",
-        },
-        {
-          title: "Changelog",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Settings",
-      url: "#",
-      icon: <Settings2Icon />,
-      items: [
-        {
-          title: "General",
-          url: "#",
-        },
-        {
-          title: "Team",
-          url: "#",
-        },
-        {
-          title: "Billing",
-          url: "#",
-        },
-        {
-          title: "Limits",
-          url: "#",
-        },
-      ],
-    },
-  ],
-  projects: [
-    {
-      name: "Design Engineering",
-      url: "#",
-      icon: <FrameIcon />,
-    },
-    {
-      name: "Sales & Marketing",
-      url: "#",
-      icon: <PieChartIcon />,
-    },
-    {
-      name: "Travel",
-      url: "#",
-      icon: <MapIcon />,
-    },
-  ],
-};
+];
 
-export function AppSidebar({ user, session, onLogout, ...props }) {
-  const navMain =
-    user.role === "admin"
-      ? [
-          ...data.navMain,
-          {
-            title: "Administration",
-            url: "#",
-            icon: <Settings2Icon />,
-            items: [{ title: "Users", url: "/admin/users" }],
-          },
-        ]
-      : data.navMain;
+const adminItems = [
+  {
+    title: "User management",
+    url: "/admin/users" as const,
+    icon: UsersIcon,
+  },
+];
+
+export function AppSidebar({ user, session, onLogout, ...props }: AppSidebarProps) {
   return (
     <Sidebar collapsible="icon" {...props}>
-      <SidebarHeader>{session && <OrganizationSwitcher session={session} />}</SidebarHeader>
+      <SidebarHeader>
+        <OrganizationSwitcher session={session} />
+      </SidebarHeader>
       <SidebarContent>
-        <NavMain items={navMain} />
-        <NavProjects projects={data.projects} />
+        <NavMain label="Overview" items={overviewItems} />
+        {user.role === "admin" && <NavMain label="Administration" items={adminItems} />}
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={user ?? data.user} onLogout={onLogout} />
+        <NavUser user={user} onLogout={onLogout} />
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>
