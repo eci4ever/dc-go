@@ -29,7 +29,7 @@ const overviewItems = [
 
 const adminItems = [
   {
-    title: "User management",
+    title: "Users",
     url: "/admin/users" as const,
     icon: UsersIcon,
   },

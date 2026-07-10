@@ -1,5 +1,12 @@
-import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
+import { createFileRoute, Outlet, redirect, useLocation } from "@tanstack/react-router";
 import { AppSidebar } from "@/components/app-sidebar";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 import { Separator } from "@/components/ui/separator";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { useAuth } from "@/hooks/use-auth";
@@ -15,17 +22,43 @@ export const Route = createFileRoute("/_protected")({
 
 function ProtectedLayout() {
   const { user, session, logout } = useAuth();
+  const pathname = useLocation({ select: (location) => location.pathname });
   if (!user || !session) return null;
+
+  const isUserManagement = pathname.startsWith("/admin/users");
 
   return (
     <SidebarProvider>
       <AppSidebar user={user} session={session} onLogout={logout} />
       <SidebarInset>
-        <header className="flex h-12 shrink-0 items-center gap-2 px-4">
-          <SidebarTrigger className="-ml-1" />
-          <Separator orientation="vertical" className="data-[orientation=vertical]:h-4" />
-        </header>
-        <main className="flex flex-1 flex-col p-4 pt-0">
+        <div className="sticky top-0 z-10 shrink-0 bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/80">
+          <header className="flex h-14 items-center gap-3 px-4 md:px-6">
+            <SidebarTrigger className="-ml-1" />
+            <Separator
+              orientation="vertical"
+              className="data-vertical:h-4 data-vertical:self-center"
+            />
+            <Breadcrumb>
+              <BreadcrumbList>
+                {isUserManagement && (
+                  <>
+                    <BreadcrumbItem className="hidden md:inline-flex">
+                      <span>Administration</span>
+                    </BreadcrumbItem>
+                    <BreadcrumbSeparator className="hidden md:list-item" />
+                  </>
+                )}
+                <BreadcrumbItem>
+                  <BreadcrumbPage>
+                    {isUserManagement ? "Users" : "Dashboard"}
+                  </BreadcrumbPage>
+                </BreadcrumbItem>
+              </BreadcrumbList>
+            </Breadcrumb>
+          </header>
+          <Separator />
+        </div>
+        <main className="flex flex-1 flex-col p-4 md:p-6">
           <Outlet />
         </main>
       </SidebarInset>
