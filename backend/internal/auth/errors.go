@@ -9,4 +9,7 @@ var (
 	ErrExpiredToken       = errors.New("expired token")
 	ErrUserBanned         = errors.New("user is banned")
 	ErrForbidden          = errors.New("forbidden")
+	ErrIncorrectPassword  = errors.New("current password is incorrect")
+	ErrCurrentSession     = errors.New("current session cannot be revoked")
+	ErrSessionNotFound    = errors.New("session not found")
 )

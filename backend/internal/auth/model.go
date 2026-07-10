@@ -48,3 +48,13 @@ type SessionContext struct {
 	ActiveOrganizationRole *string
 	ActiveTeamID           *string
 }
+
+type ManagedSession struct {
+	ID        string  `json:"id"`
+	ExpiresAt string  `json:"expiresAt"`
+	CreatedAt string  `json:"createdAt"`
+	UpdatedAt string  `json:"updatedAt"`
+	IPAddress *string `json:"ipAddress"`
+	UserAgent *string `json:"userAgent"`
+	Current   bool    `json:"current"`
+}

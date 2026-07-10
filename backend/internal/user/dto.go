@@ -4,8 +4,7 @@ import "time"
 
 type UpdateUserRequest struct {
 	Name  string  `json:"name" validate:"required,min=1,max=100"`
-	Email string  `json:"email" validate:"required,email,max=100"`
-	Image *string `json:"image,omitempty"`
+	Image *string `json:"image" validate:"omitempty,url,max=2048"`
 }
 
 type UpdateRoleRequest struct {

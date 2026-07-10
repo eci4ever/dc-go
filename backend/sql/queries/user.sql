@@ -12,7 +12,7 @@ INSERT INTO "user" (id, name, email, image)
 VALUES ($1, $2, $3, $4) RETURNING *;
 
 -- name: UpdateUser :one
-UPDATE "user" SET name=$2, email=$3, image=$4, updated_at=NOW()
+UPDATE "user" SET name=$2, image=$3, updated_at=NOW()
 WHERE id=$1 RETURNING *;
 
 -- name: UpdateUserRole :one

@@ -15,6 +15,11 @@ type SetActiveOrganizationRequest struct {
 	OrganizationID string `json:"organization_id" validate:"required"`
 }
 
+type ChangePasswordRequest struct {
+	CurrentPassword string `json:"current_password" validate:"required"`
+	NewPassword     string `json:"new_password" validate:"required,min=8,max=72,nefield=CurrentPassword"`
+}
+
 type TokenResponse struct {
 	AccessToken  string      `json:"-"`
 	RefreshToken string      `json:"-"`

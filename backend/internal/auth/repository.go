@@ -85,6 +85,18 @@ func (r *Repository) GetAccountByProvider(ctx context.Context, providerID, accou
 	})
 }
 
+func (r *Repository) GetCredentialAccountByUserID(ctx context.Context, userID string) (db.Account, error) {
+	return r.q.GetCredentialAccountByUserID(ctx, userID)
+}
+
+func (r *Repository) UpdateAccountPassword(ctx context.Context, accountID, password string) error {
+	_, err := r.q.UpdateAccountPassword(ctx, db.UpdateAccountPasswordParams{
+		ID:       accountID,
+		Password: pgtext(&password),
+	})
+	return err
+}
+
 func (r *Repository) CreateSession(ctx context.Context, userID, ipAddress, userAgent string, expiresAt time.Time) (db.Session, string, error) {
 	id := uuid.New().String()
 	token, err := newRefreshToken()

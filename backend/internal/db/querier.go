@@ -32,6 +32,7 @@ type Querier interface {
 	DeleteVerification(ctx context.Context, id string) error
 	GetAccountByProvider(ctx context.Context, arg GetAccountByProviderParams) (Account, error)
 	GetAccountsByUserID(ctx context.Context, userID string) ([]Account, error)
+	GetCredentialAccountByUserID(ctx context.Context, userID string) (Account, error)
 	GetInvitation(ctx context.Context, id string) (Invitation, error)
 	GetMember(ctx context.Context, arg GetMemberParams) (Member, error)
 	GetOrganization(ctx context.Context, id string) (Organization, error)

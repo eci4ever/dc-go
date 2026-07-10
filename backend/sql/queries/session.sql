@@ -10,7 +10,7 @@ LEFT JOIN "member" m
 WHERE s.token = $1;
 
 -- name: ListSessionsByUserID :many
-SELECT * FROM "session" WHERE user_id = $1 ORDER BY created_at DESC;
+SELECT * FROM "session" WHERE user_id = $1 AND expires_at > NOW() ORDER BY created_at DESC;
 
 -- name: CreateSession :one
 INSERT INTO "session" (id, expires_at, token, ip_address, user_agent, user_id, active_organization_id, active_team_id)

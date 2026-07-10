@@ -72,11 +72,10 @@ func (r *Repository) Create(ctx context.Context, id, name, email string, image *
 	return toDomain(u), nil
 }
 
-func (r *Repository) Update(ctx context.Context, id, name, email string, image *string) (User, error) {
+func (r *Repository) Update(ctx context.Context, id, name string, image *string) (User, error) {
 	u, err := r.q.UpdateUser(ctx, db.UpdateUserParams{
 		ID:    id,
 		Name:  name,
-		Email: email,
 		Image: pgtext(image),
 	})
 	if err != nil {

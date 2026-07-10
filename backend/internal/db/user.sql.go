@@ -143,24 +143,18 @@ func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
 }
 
 const updateUser = `-- name: UpdateUser :one
-UPDATE "user" SET name=$2, email=$3, image=$4, updated_at=NOW()
+UPDATE "user" SET name=$2, image=$3, updated_at=NOW()
 WHERE id=$1 RETURNING id, name, email, email_verified, image, created_at, updated_at, role, banned, ban_reason, ban_expires, two_factor_enabled
 `
 
 type UpdateUserParams struct {
 	ID    string      `json:"id"`
 	Name  string      `json:"name"`
-	Email string      `json:"email"`
 	Image pgtype.Text `json:"image"`
 }
 
 func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error) {
-	row := q.db.QueryRow(ctx, updateUser,
-		arg.ID,
-		arg.Name,
-		arg.Email,
-		arg.Image,
-	)
+	row := q.db.QueryRow(ctx, updateUser, arg.ID, arg.Name, arg.Image)
 	var i User
 	err := row.Scan(
 		&i.ID,

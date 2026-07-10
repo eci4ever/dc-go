@@ -2,7 +2,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { cva } from "class-variance-authority";
+import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
@@ -35,7 +35,7 @@ function FieldLegend({ className, variant = "legend", ...props }) {
   );
 }
 
-function FieldGroup({ className, ...props }) {
+function FieldGroup({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="field-group"
@@ -63,7 +63,11 @@ const fieldVariants = cva("group/field flex w-full gap-3 data-[invalid=true]:tex
   },
 });
 
-function Field({ className, orientation = "vertical", ...props }) {
+function Field({
+  className,
+  orientation = "vertical",
+  ...props
+}: React.ComponentProps<"div"> & VariantProps<typeof fieldVariants>) {
   return (
     <div
       role="group"
@@ -85,7 +89,7 @@ function FieldContent({ className, ...props }) {
   );
 }
 
-function FieldLabel({ className, ...props }) {
+function FieldLabel({ className, ...props }: React.ComponentProps<typeof Label>) {
   return (
     <Label
       data-slot="field-label"
@@ -112,7 +116,7 @@ function FieldTitle({ className, ...props }) {
   );
 }
 
-function FieldDescription({ className, ...props }) {
+function FieldDescription({ className, ...props }: React.ComponentProps<"p">) {
   return (
     <p
       data-slot="field-description"
@@ -151,7 +155,12 @@ function FieldSeparator({ children, className, ...props }) {
   );
 }
 
-function FieldError({ className, children, errors, ...props }) {
+function FieldError({
+  className,
+  children,
+  errors,
+  ...props
+}: React.ComponentProps<"div"> & { errors?: Array<{ message?: string }> }) {
   const content = useMemo(() => {
     if (children) {
       return children;

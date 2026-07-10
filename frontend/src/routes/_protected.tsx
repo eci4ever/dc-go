@@ -26,6 +26,7 @@ function ProtectedLayout() {
   if (!user || !session) return null;
 
   const isUserManagement = pathname.startsWith("/admin/users");
+  const isAccount = pathname.startsWith("/account");
 
   return (
     <SidebarProvider>
@@ -50,7 +51,7 @@ function ProtectedLayout() {
                 )}
                 <BreadcrumbItem>
                   <BreadcrumbPage>
-                    {isUserManagement ? "Users" : "Dashboard"}
+                    {isUserManagement ? "Users" : isAccount ? "Account" : "Dashboard"}
                   </BreadcrumbPage>
                 </BreadcrumbItem>
               </BreadcrumbList>

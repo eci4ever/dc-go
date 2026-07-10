@@ -112,6 +112,51 @@ func (h *Handler) SetActiveOrganization(c *fiber.Ctx) error {
 	return c.JSON(response.OK(sess))
 }
 
+func (h *Handler) ChangePassword(c *fiber.Ctx) error {
+	var req ChangePasswordRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(400).JSON(response.Error("invalid request body"))
+	}
+	if err := validator.Validate(req); err != nil {
+		return c.Status(400).JSON(response.Error(err.Error()))
+	}
+	if err := h.svc.ChangePassword(c.UserContext(), c.Locals("user_id").(string), req); err != nil {
+		if errors.Is(err, ErrIncorrectPassword) {
+			return c.Status(400).JSON(response.Error(err.Error()))
+		}
+		return c.Status(500).JSON(response.Error("internal server error"))
+	}
+	return c.JSON(response.OK(nil))
+}
+
+func (h *Handler) ListSessions(c *fiber.Ctx) error {
+	sessions, err := h.svc.ListSessions(c.UserContext(), c.Locals("user_id").(string), c.Cookies("refresh_token"))
+	if err != nil {
+		if errors.Is(err, ErrInvalidToken) {
+			return c.Status(401).JSON(response.Error("invalid session"))
+		}
+		return c.Status(500).JSON(response.Error("internal server error"))
+	}
+	return c.JSON(response.OK(sessions))
+}
+
+func (h *Handler) RevokeSession(c *fiber.Ctx) error {
+	err := h.svc.RevokeSession(c.UserContext(), c.Locals("user_id").(string), c.Cookies("refresh_token"), c.Params("id"))
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrCurrentSession):
+			return c.Status(400).JSON(response.Error(err.Error()))
+		case errors.Is(err, ErrSessionNotFound):
+			return c.Status(404).JSON(response.NotFound())
+		case errors.Is(err, ErrInvalidToken):
+			return c.Status(401).JSON(response.Error("invalid session"))
+		default:
+			return c.Status(500).JSON(response.Error("internal server error"))
+		}
+	}
+	return c.SendStatus(204)
+}
+
 func (h *Handler) Logout(c *fiber.Ctx) error {
 	if err := h.svc.Logout(c.UserContext(), c.Cookies("refresh_token")); err != nil {
 		return c.Status(500).JSON(response.Error("internal server error"))

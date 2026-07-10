@@ -27,7 +27,7 @@ func (s *Service) List(ctx context.Context) ([]UserResponse, error) {
 }
 
 func (s *Service) Update(ctx context.Context, id string, req UpdateUserRequest) (UserResponse, error) {
-	u, err := s.repo.Update(ctx, id, req.Name, req.Email, req.Image)
+	u, err := s.repo.Update(ctx, id, req.Name, req.Image)
 	if err != nil {
 		return UserResponse{}, err
 	}

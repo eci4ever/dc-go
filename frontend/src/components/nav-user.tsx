@@ -1,4 +1,5 @@
-import { ChevronsUpDownIcon, LogOutIcon } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { ChevronsUpDownIcon, LogOutIcon, UserRoundIcon } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -66,6 +67,15 @@ export function NavUser({ user, onLogout }: { user: User; onLogout: () => Promis
                 <Badge variant="outline">{user.role}</Badge>
               </div>
             </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+              <DropdownMenuItem asChild>
+                <Link to="/account">
+                  <UserRoundIcon />
+                  <span>Account</span>
+                </Link>
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuItem onSelect={() => void onLogout()}>

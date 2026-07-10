@@ -4,6 +4,9 @@ SELECT * FROM "account" WHERE provider_id = $1 AND account_id = $2;
 -- name: GetAccountsByUserID :many
 SELECT * FROM "account" WHERE user_id = $1;
 
+-- name: GetCredentialAccountByUserID :one
+SELECT * FROM "account" WHERE user_id = $1 AND provider_id = 'credential';
+
 -- name: CreateAccount :one
 INSERT INTO "account" (id, account_id, provider_id, user_id, password, scope)
 VALUES ($1, $2, $3, $4, $5, $6) RETURNING *;

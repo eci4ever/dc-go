@@ -14,6 +14,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as ProtectedRouteImport } from './routes/_protected'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ProtectedDashboardRouteImport } from './routes/_protected/dashboard'
+import { Route as ProtectedAccountRouteImport } from './routes/_protected/account'
 import { Route as ProtectedAdminUsersRouteImport } from './routes/_protected/admin/users'
 
 const SignupRoute = SignupRouteImport.update({
@@ -40,6 +41,11 @@ const ProtectedDashboardRoute = ProtectedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => ProtectedRoute,
 } as any)
+const ProtectedAccountRoute = ProtectedAccountRouteImport.update({
+  id: '/account',
+  path: '/account',
+  getParentRoute: () => ProtectedRoute,
+} as any)
 const ProtectedAdminUsersRoute = ProtectedAdminUsersRouteImport.update({
   id: '/admin/users',
   path: '/admin/users',
@@ -50,6 +56,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
+  '/account': typeof ProtectedAccountRoute
   '/dashboard': typeof ProtectedDashboardRoute
   '/admin/users': typeof ProtectedAdminUsersRoute
 }
@@ -57,6 +64,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
+  '/account': typeof ProtectedAccountRoute
   '/dashboard': typeof ProtectedDashboardRoute
   '/admin/users': typeof ProtectedAdminUsersRoute
 }
@@ -66,20 +74,23 @@ export interface FileRoutesById {
   '/_protected': typeof ProtectedRouteWithChildren
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
+  '/_protected/account': typeof ProtectedAccountRoute
   '/_protected/dashboard': typeof ProtectedDashboardRoute
   '/_protected/admin/users': typeof ProtectedAdminUsersRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login' | '/signup' | '/dashboard' | '/admin/users'
+  fullPaths:
+    '/' | '/login' | '/signup' | '/account' | '/dashboard' | '/admin/users'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/signup' | '/dashboard' | '/admin/users'
+  to: '/' | '/login' | '/signup' | '/account' | '/dashboard' | '/admin/users'
   id:
     | '__root__'
     | '/'
     | '/_protected'
     | '/login'
     | '/signup'
+    | '/_protected/account'
     | '/_protected/dashboard'
     | '/_protected/admin/users'
   fileRoutesById: FileRoutesById
@@ -128,6 +139,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedDashboardRouteImport
       parentRoute: typeof ProtectedRoute
     }
+    '/_protected/account': {
+      id: '/_protected/account'
+      path: '/account'
+      fullPath: '/account'
+      preLoaderRoute: typeof ProtectedAccountRouteImport
+      parentRoute: typeof ProtectedRoute
+    }
     '/_protected/admin/users': {
       id: '/_protected/admin/users'
       path: '/admin/users'
@@ -139,11 +157,13 @@ declare module '@tanstack/react-router' {
 }
 
 interface ProtectedRouteChildren {
+  ProtectedAccountRoute: typeof ProtectedAccountRoute
   ProtectedDashboardRoute: typeof ProtectedDashboardRoute
   ProtectedAdminUsersRoute: typeof ProtectedAdminUsersRoute
 }
 
 const ProtectedRouteChildren: ProtectedRouteChildren = {
+  ProtectedAccountRoute: ProtectedAccountRoute,
   ProtectedDashboardRoute: ProtectedDashboardRoute,
   ProtectedAdminUsersRoute: ProtectedAdminUsersRoute,
 }

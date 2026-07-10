@@ -166,7 +166,7 @@ func (q *Queries) GetSessionContextByToken(ctx context.Context, token string) (G
 }
 
 const listSessionsByUserID = `-- name: ListSessionsByUserID :many
-SELECT id, expires_at, token, created_at, updated_at, ip_address, user_agent, user_id, impersonated_by, active_organization_id, active_team_id FROM "session" WHERE user_id = $1 ORDER BY created_at DESC
+SELECT id, expires_at, token, created_at, updated_at, ip_address, user_agent, user_id, impersonated_by, active_organization_id, active_team_id FROM "session" WHERE user_id = $1 AND expires_at > NOW() ORDER BY created_at DESC
 `
 
 func (q *Queries) ListSessionsByUserID(ctx context.Context, userID string) ([]Session, error) {

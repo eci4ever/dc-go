@@ -121,6 +121,31 @@ func (q *Queries) GetAccountsByUserID(ctx context.Context, userID string) ([]Acc
 	return items, nil
 }
 
+const getCredentialAccountByUserID = `-- name: GetCredentialAccountByUserID :one
+SELECT id, account_id, provider_id, user_id, access_token, refresh_token, id_token, access_token_expires_at, refresh_token_expires_at, scope, password, created_at, updated_at FROM "account" WHERE user_id = $1 AND provider_id = 'credential'
+`
+
+func (q *Queries) GetCredentialAccountByUserID(ctx context.Context, userID string) (Account, error) {
+	row := q.db.QueryRow(ctx, getCredentialAccountByUserID, userID)
+	var i Account
+	err := row.Scan(
+		&i.ID,
+		&i.AccountID,
+		&i.ProviderID,
+		&i.UserID,
+		&i.AccessToken,
+		&i.RefreshToken,
+		&i.IDToken,
+		&i.AccessTokenExpiresAt,
+		&i.RefreshTokenExpiresAt,
+		&i.Scope,
+		&i.Password,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const updateAccountPassword = `-- name: UpdateAccountPassword :one
 UPDATE "account" SET password=$2, updated_at=NOW() WHERE id=$1 RETURNING id, account_id, provider_id, user_id, access_token, refresh_token, id_token, access_token_expires_at, refresh_token_expires_at, scope, password, created_at, updated_at
 `

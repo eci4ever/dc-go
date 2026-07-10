@@ -46,6 +46,15 @@ interface Organization {
   logo?: string | null;
   created_at: string;
 }
+interface ManagedSession {
+  id: string;
+  expiresAt: string;
+  createdAt: string;
+  updatedAt: string;
+  ipAddress: string | null;
+  userAgent: string | null;
+  current: boolean;
+}
 
 function csrfToken() {
   return document.cookie
@@ -113,6 +122,19 @@ export async function logout() {
   return request("/auth/logout", { method: "POST" });
 }
 export const getSession = () => request<SessionData>("/auth/session");
+export const updateProfile = (name: string, image: string | null) =>
+  request<User>("/users/me", {
+    method: "PUT",
+    body: JSON.stringify({ name, image }),
+  });
+export const changePassword = (currentPassword: string, newPassword: string) =>
+  request<void>("/auth/password", {
+    method: "PUT",
+    body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+  });
+export const listSessions = () => request<ManagedSession[]>("/auth/sessions");
+export const revokeSession = (id: string) =>
+  request<void>(`/auth/sessions/${id}`, { method: "DELETE" });
 export const listOrganizations = () => request<Organization[]>("/organizations");
 export const setActiveOrganization = (organizationId: string) =>
   request<SessionData>("/auth/session/active-organization", {
@@ -125,4 +147,13 @@ export const updateUserRole = (id: string, role: UserRole) =>
     method: "PUT",
     body: JSON.stringify({ role }),
   });
-export type { UserRole, OrganizationRole, User, Session, SessionData, Organization, ApiResponse };
+export type {
+  UserRole,
+  OrganizationRole,
+  User,
+  Session,
+  SessionData,
+  ManagedSession,
+  Organization,
+  ApiResponse,
+};

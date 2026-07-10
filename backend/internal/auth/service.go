@@ -151,6 +151,71 @@ func (s *Service) Logout(ctx context.Context, refreshToken string) error {
 	return s.repo.DeleteSessionByToken(ctx, refreshToken)
 }
 
+func (s *Service) ChangePassword(ctx context.Context, userID string, req ChangePasswordRequest) error {
+	account, err := s.repo.GetCredentialAccountByUserID(ctx, userID)
+	if err != nil || !account.Password.Valid {
+		return ErrIncorrectPassword
+	}
+	if err := bcrypt.CompareHashAndPassword([]byte(account.Password.String), []byte(req.CurrentPassword)); err != nil {
+		return ErrIncorrectPassword
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	return s.repo.UpdateAccountPassword(ctx, account.ID, string(hash))
+}
+
+func (s *Service) ListSessions(ctx context.Context, userID, refreshToken string) ([]ManagedSession, error) {
+	if refreshToken == "" {
+		return nil, ErrInvalidToken
+	}
+	current, err := s.repo.GetSessionContextByToken(ctx, refreshToken)
+	if err != nil || current.UserID != userID {
+		return nil, ErrInvalidToken
+	}
+	sessions, err := s.repo.ListSessionsByUserID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]ManagedSession, len(sessions))
+	for i, session := range sessions {
+		result[i] = ManagedSession{
+			ID:        session.ID,
+			ExpiresAt: formatTime(session.ExpiresAt.Time),
+			CreatedAt: formatTime(session.CreatedAt.Time),
+			UpdatedAt: formatTime(session.UpdatedAt.Time),
+			IPAddress: pgtextPtr(&session.IpAddress),
+			UserAgent: pgtextPtr(&session.UserAgent),
+			Current:   session.ID == current.ID,
+		}
+	}
+	return result, nil
+}
+
+func (s *Service) RevokeSession(ctx context.Context, userID, refreshToken, sessionID string) error {
+	if refreshToken == "" {
+		return ErrInvalidToken
+	}
+	current, err := s.repo.GetSessionContextByToken(ctx, refreshToken)
+	if err != nil || current.UserID != userID {
+		return ErrInvalidToken
+	}
+	if current.ID == sessionID {
+		return ErrCurrentSession
+	}
+	sessions, err := s.repo.ListSessionsByUserID(ctx, userID)
+	if err != nil {
+		return err
+	}
+	for _, session := range sessions {
+		if session.ID == sessionID {
+			return s.repo.DeleteSession(ctx, sessionID)
+		}
+	}
+	return ErrSessionNotFound
+}
+
 func (s *Service) createSession(ctx context.Context, userID, ipAddress, userAgent string) (TokenResponse, error) {
 	u, err := s.repo.GetUserByID(ctx, userID)
 	if err != nil {
