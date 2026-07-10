@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"dc-express/pkg/response"
+	"dc-express/pkg/validator"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -17,7 +18,7 @@ func NewHandler(svc *Service) *Handler {
 }
 
 func (h *Handler) GetByID(c *fiber.Ctx) error {
-	id := c.Params("id")
+	id, _ := c.Locals("user_id").(string)
 	if id == "" {
 		return c.Status(400).JSON(response.Error("invalid id"))
 	}
@@ -33,17 +34,8 @@ func (h *Handler) GetByID(c *fiber.Ctx) error {
 	return c.JSON(response.OK(u))
 }
 
-func (h *Handler) List(c *fiber.Ctx) error {
-	users, err := h.svc.List(c.UserContext())
-	if err != nil {
-		return c.Status(500).JSON(response.Error("internal server error"))
-	}
-
-	return c.JSON(response.OK(users))
-}
-
 func (h *Handler) Update(c *fiber.Ctx) error {
-	id := c.Params("id")
+	id, _ := c.Locals("user_id").(string)
 	if id == "" {
 		return c.Status(400).JSON(response.Error("invalid id"))
 	}
@@ -51,6 +43,9 @@ func (h *Handler) Update(c *fiber.Ctx) error {
 	var req UpdateUserRequest
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(400).JSON(response.Error("invalid request body"))
+	}
+	if err := validator.Validate(req); err != nil {
+		return c.Status(400).JSON(response.Error(err.Error()))
 	}
 
 	u, err := h.svc.Update(c.UserContext(), id, req)
@@ -65,7 +60,7 @@ func (h *Handler) Update(c *fiber.Ctx) error {
 }
 
 func (h *Handler) Delete(c *fiber.Ctx) error {
-	id := c.Params("id")
+	id, _ := c.Locals("user_id").(string)
 	if id == "" {
 		return c.Status(400).JSON(response.Error("invalid id"))
 	}

@@ -2,9 +2,13 @@ package auth
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"time"
 
+	"crypto/rand"
+	"encoding/base64"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -82,22 +86,26 @@ func (r *Repository) GetAccountByProvider(ctx context.Context, providerID, accou
 	})
 }
 
-func (r *Repository) CreateSession(ctx context.Context, userID, ipAddress, userAgent string, expiresAt time.Time) (db.Session, error) {
+func (r *Repository) CreateSession(ctx context.Context, userID, ipAddress, userAgent string, expiresAt time.Time) (db.Session, string, error) {
 	id := uuid.New().String()
-	token := uuid.New().String()
-	return r.q.CreateSession(ctx, db.CreateSessionParams{
+	token, err := newRefreshToken()
+	if err != nil {
+		return db.Session{}, "", err
+	}
+	sess, err := r.q.CreateSession(ctx, db.CreateSessionParams{
 		ID:                   id,
 		ExpiresAt:            timestamptz(expiresAt),
-		Token:                token,
+		Token:                hashToken(token),
 		IpAddress:            pgtext(&ipAddress),
 		UserAgent:            pgtext(&userAgent),
 		UserID:               userID,
 		ActiveOrganizationID: pgtype.Text{Valid: false},
 	})
+	return sess, token, err
 }
 
 func (r *Repository) GetSessionByToken(ctx context.Context, token string) (db.Session, error) {
-	return r.q.GetSessionByToken(ctx, token)
+	return r.q.GetSessionByToken(ctx, hashToken(token))
 }
 
 func (r *Repository) DeleteSession(ctx context.Context, id string) error {
@@ -105,7 +113,50 @@ func (r *Repository) DeleteSession(ctx context.Context, id string) error {
 }
 
 func (r *Repository) DeleteSessionByToken(ctx context.Context, token string) error {
-	return r.q.DeleteSessionByToken(ctx, token)
+	return r.q.DeleteSessionByToken(ctx, hashToken(token))
+}
+
+// RotateSession atomically consumes the old refresh session and creates its replacement.
+// This prevents two concurrent refresh requests from both succeeding.
+func (r *Repository) RotateSession(ctx context.Context, token, userID, ipAddress, userAgent string, expiresAt time.Time) (db.Session, string, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return db.Session{}, "", err
+	}
+	defer tx.Rollback(ctx)
+	q := db.New(tx)
+	old, err := q.GetSessionByToken(ctx, hashToken(token))
+	if err != nil {
+		return db.Session{}, "", err
+	}
+	if old.UserID != userID {
+		return db.Session{}, "", errors.New("session user mismatch")
+	}
+	if err = q.DeleteSession(ctx, old.ID); err != nil {
+		return db.Session{}, "", err
+	}
+	newToken, err := newRefreshToken()
+	if err != nil {
+		return db.Session{}, "", err
+	}
+	sess, err := q.CreateSession(ctx, db.CreateSessionParams{ID: uuid.New().String(), ExpiresAt: timestamptz(expiresAt), Token: hashToken(newToken), IpAddress: pgtext(&ipAddress), UserAgent: pgtext(&userAgent), UserID: userID, ActiveOrganizationID: pgtype.Text{Valid: false}})
+	if err != nil {
+		return db.Session{}, "", err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return db.Session{}, "", err
+	}
+	return sess, newToken, nil
+}
+
+func (r *Repository) DeleteSessionsByUserID(ctx context.Context, userID string) error {
+	_, err := r.pool.Exec(ctx, `DELETE FROM "session" WHERE user_id=$1`, userID)
+	return err
+}
+
+func hashToken(token string) string {
+	sum := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(sum[:])
 }
 
 func (r *Repository) ListSessionsByUserID(ctx context.Context, userID string) ([]db.Session, error) {
@@ -142,4 +193,12 @@ func pgtext(s *string) pgtype.Text {
 
 func timestamptz(t time.Time) pgtype.Timestamptz {
 	return pgtype.Timestamptz{Time: t, Valid: true}
+}
+
+func newRefreshToken() (string, error) {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(b), nil
 }

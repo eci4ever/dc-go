@@ -150,6 +150,17 @@ func (r *Repository) CheckOrgMembership(ctx context.Context, orgID, userID strin
 	return true, nil
 }
 
+func (r *Repository) MemberRole(ctx context.Context, orgID, userID string) (string, error) {
+	m, err := r.q.GetMember(ctx, db.GetMemberParams{OrganizationID: orgID, UserID: userID})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	return m.Role, nil
+}
+
 func mapTeam(t db.Team) Team {
 	return Team{
 		ID:        t.ID,

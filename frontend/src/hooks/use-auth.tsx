@@ -19,16 +19,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({ user: null, loading: true })
 
   const fetchSession = useCallback(async () => {
-    const token = localStorage.getItem('accessToken')
-    if (!token) {
-      setState({ user: null, loading: false })
-      return
-    }
     const res = await api.getSession()
     if (res.success && res.data) {
       setState({ user: res.data.user, loading: false })
     } else {
-      localStorage.removeItem('accessToken')
       setState({ user: null, loading: false })
     }
   }, [])

@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"dc-express/pkg/response"
+	"dc-express/pkg/validator"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -21,6 +22,9 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(400).JSON(response.Error("invalid request body"))
 	}
+	if err := validator.Validate(req); err != nil {
+		return c.Status(400).JSON(response.Error(err.Error()))
+	}
 
 	userID := c.Locals("user_id").(string)
 	org, err := h.svc.Create(c.UserContext(), req, userID)
@@ -36,7 +40,7 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 
 func (h *Handler) GetByID(c *fiber.Ctx) error {
 	id := c.Params("id")
-	org, err := h.svc.GetByID(c.UserContext(), id)
+	org, err := h.svc.GetByID(c.UserContext(), id, c.Locals("user_id").(string))
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			return c.Status(404).JSON(response.NotFound())
@@ -61,8 +65,11 @@ func (h *Handler) Update(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(400).JSON(response.Error("invalid request body"))
 	}
+	if err := validator.Validate(req); err != nil {
+		return c.Status(400).JSON(response.Error(err.Error()))
+	}
 
-	org, err := h.svc.Update(c.UserContext(), id, req)
+	org, err := h.svc.Update(c.UserContext(), id, c.Locals("user_id").(string), req)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			return c.Status(404).JSON(response.NotFound())
@@ -74,7 +81,7 @@ func (h *Handler) Update(c *fiber.Ctx) error {
 
 func (h *Handler) Delete(c *fiber.Ctx) error {
 	id := c.Params("id")
-	if err := h.svc.Delete(c.UserContext(), id); err != nil {
+	if err := h.svc.Delete(c.UserContext(), id, c.Locals("user_id").(string)); err != nil {
 		if errors.Is(err, ErrNotFound) {
 			return c.Status(404).JSON(response.NotFound())
 		}
@@ -85,7 +92,7 @@ func (h *Handler) Delete(c *fiber.Ctx) error {
 
 func (h *Handler) GetMembers(c *fiber.Ctx) error {
 	orgID := c.Params("id")
-	members, err := h.svc.GetMembers(c.UserContext(), orgID)
+	members, err := h.svc.GetMembers(c.UserContext(), orgID, c.Locals("user_id").(string))
 	if err != nil {
 		return c.Status(500).JSON(response.Error("internal server error"))
 	}
@@ -112,8 +119,11 @@ func (h *Handler) UpdateMemberRole(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(400).JSON(response.Error("invalid request body"))
 	}
+	if err := validator.Validate(req); err != nil {
+		return c.Status(400).JSON(response.Error(err.Error()))
+	}
 
-	if err := h.svc.UpdateMemberRole(c.UserContext(), orgID, userID, req.Role); err != nil {
+	if err := h.svc.UpdateMemberRole(c.UserContext(), orgID, userID, c.Locals("user_id").(string), req.Role); err != nil {
 		return c.Status(500).JSON(response.Error("internal server error"))
 	}
 	return c.JSON(response.OK(nil))
@@ -122,7 +132,7 @@ func (h *Handler) UpdateMemberRole(c *fiber.Ctx) error {
 func (h *Handler) RemoveMember(c *fiber.Ctx) error {
 	orgID := c.Params("id")
 	userID := c.Params("userID")
-	if err := h.svc.RemoveMember(c.UserContext(), orgID, userID); err != nil {
+	if err := h.svc.RemoveMember(c.UserContext(), orgID, userID, c.Locals("user_id").(string)); err != nil {
 		return c.Status(500).JSON(response.Error("internal server error"))
 	}
 	return c.SendStatus(204)
@@ -133,6 +143,9 @@ func (h *Handler) Invite(c *fiber.Ctx) error {
 	var req InviteRequest
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(400).JSON(response.Error("invalid request body"))
+	}
+	if err := validator.Validate(req); err != nil {
+		return c.Status(400).JSON(response.Error(err.Error()))
 	}
 
 	userID := c.Locals("user_id").(string)
@@ -145,7 +158,7 @@ func (h *Handler) Invite(c *fiber.Ctx) error {
 
 func (h *Handler) ListInvitations(c *fiber.Ctx) error {
 	orgID := c.Params("id")
-	invs, err := h.svc.ListInvitations(c.UserContext(), orgID)
+	invs, err := h.svc.ListInvitations(c.UserContext(), orgID, c.Locals("user_id").(string))
 	if err != nil {
 		return c.Status(500).JSON(response.Error("internal server error"))
 	}
@@ -166,7 +179,7 @@ func (h *Handler) AcceptInvitation(c *fiber.Ctx) error {
 
 func (h *Handler) DeclineInvitation(c *fiber.Ctx) error {
 	id := c.Params("id")
-	if err := h.svc.DeclineInvitation(c.UserContext(), id); err != nil {
+	if err := h.svc.DeclineInvitation(c.UserContext(), id, c.Locals("user_id").(string)); err != nil {
 		return c.Status(500).JSON(response.Error("internal server error"))
 	}
 	return c.JSON(response.OK(nil))
@@ -174,7 +187,7 @@ func (h *Handler) DeclineInvitation(c *fiber.Ctx) error {
 
 func (h *Handler) CancelInvitation(c *fiber.Ctx) error {
 	id := c.Params("id")
-	if err := h.svc.CancelInvitation(c.UserContext(), id); err != nil {
+	if err := h.svc.CancelInvitation(c.UserContext(), id, c.Locals("user_id").(string)); err != nil {
 		return c.Status(500).JSON(response.Error("internal server error"))
 	}
 	return c.SendStatus(204)

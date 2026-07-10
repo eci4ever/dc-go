@@ -19,6 +19,9 @@ FROM alpine:3.19
 RUN apk --no-cache add ca-certificates
 WORKDIR /app
 COPY --from=backend-builder /app/server .
+COPY --from=backend-builder /app/migrations ./migrations
 COPY --from=frontend-builder /app/frontend/dist ./public
 EXPOSE 3000
+RUN addgroup -S app && adduser -S app -G app && chown -R app:app /app
+USER app
 CMD ["./server"]

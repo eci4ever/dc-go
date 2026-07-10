@@ -3,8 +3,8 @@ package organization
 import "time"
 
 type CreateOrgRequest struct {
-	Name string `json:"name" validate:"required,min=1,max=100"`
-	Slug string `json:"slug" validate:"required,min=1,max=50"`
+	Name string  `json:"name" validate:"required,min=1,max=100"`
+	Slug string  `json:"slug" validate:"required,min=1,max=50"`
 	Logo *string `json:"logo,omitempty"`
 }
 

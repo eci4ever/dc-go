@@ -1,8 +1,8 @@
 package user
 
 type UpdateUserRequest struct {
-	Name  string `json:"name" validate:"required,min=1,max=100"`
-	Email string `json:"email" validate:"required,email,max=100"`
+	Name  string  `json:"name" validate:"required,min=1,max=100"`
+	Email string  `json:"email" validate:"required,email,max=100"`
 	Image *string `json:"image,omitempty"`
 }
 

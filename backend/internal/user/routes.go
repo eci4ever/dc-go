@@ -7,8 +7,12 @@ func RegisterRoutes(router fiber.Router, h *Handler, mw ...fiber.Handler) {
 	if len(mw) > 0 && mw[0] != nil {
 		g.Use(mw[0])
 	}
-	g.Get("/", h.List)
-	g.Get("/:id", h.GetByID)
-	g.Put("/:id", h.Update)
-	g.Delete("/:id", h.Delete)
+	g.Get("/me", h.GetByID)
+	if len(mw) > 1 {
+		g.Put("/me", mw[1], h.Update)
+		g.Delete("/me", mw[1], h.Delete)
+	} else {
+		g.Put("/me", h.Update)
+		g.Delete("/me", h.Delete)
+	}
 }

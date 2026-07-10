@@ -9,11 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func Connect(ctx context.Context) *pgxpool.Pool {
-	dsn := os.Getenv("DATABASE_URL")
-	if dsn == "" {
-		dsn = "postgres://postgres:postgres@localhost:5432/dc_express"
-	}
+func Connect(ctx context.Context, dsn string) *pgxpool.Pool {
 
 	cfg, err := pgxpool.ParseConfig(dsn)
 	if err != nil {

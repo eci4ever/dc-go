@@ -3,6 +3,7 @@ package organization
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -234,6 +235,10 @@ func (r *Repository) AcceptInvitation(ctx context.Context, id, userID string) er
 	if inv.Status != "pending" {
 		return errors.New("invitation is not pending")
 	}
+	u, err := r.q.GetUser(ctx, userID)
+	if err != nil || !strings.EqualFold(u.Email, inv.Email) {
+		return ErrInvitationNotFound
+	}
 
 	if inv.ExpiresAt.Time.Before(time.Now()) {
 		r.q.UpdateInvitationStatus(ctx, db.UpdateInvitationStatusParams{
@@ -261,8 +266,16 @@ func (r *Repository) AcceptInvitation(ctx context.Context, id, userID string) er
 	return err
 }
 
-func (r *Repository) DeclineInvitation(ctx context.Context, id string) error {
-	_, err := r.q.UpdateInvitationStatus(ctx, db.UpdateInvitationStatusParams{
+func (r *Repository) DeclineInvitation(ctx context.Context, id, userID string) error {
+	inv, err := r.GetInvitation(ctx, id)
+	if err != nil {
+		return err
+	}
+	u, err := r.q.GetUser(ctx, userID)
+	if err != nil || !strings.EqualFold(u.Email, inv.Email) {
+		return ErrInvitationNotFound
+	}
+	_, err = r.q.UpdateInvitationStatus(ctx, db.UpdateInvitationStatusParams{
 		ID:     id,
 		Status: "declined",
 	})

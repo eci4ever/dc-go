@@ -1,7 +1,7 @@
 package auth
 
 import (
-	"strings"
+	"crypto/subtle"
 
 	"dc-express/pkg/response"
 
@@ -10,22 +10,25 @@ import (
 
 func AuthMiddleware(jwt *JWTService) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		auth := c.Get("Authorization")
-		if auth == "" {
-			return c.Status(401).JSON(response.Error("missing authorization header"))
-		}
-
-		parts := strings.SplitN(auth, " ", 2)
-		if len(parts) != 2 || parts[0] != "Bearer" {
-			return c.Status(401).JSON(response.Error("invalid authorization format"))
-		}
-
-		claims, err := jwt.Verify(parts[1])
+		claims, err := jwt.Verify(c.Cookies("access_token"))
 		if err != nil {
 			return c.Status(401).JSON(response.Error("invalid or expired token"))
 		}
 
 		c.Locals("user_id", claims.UserID)
+		return c.Next()
+	}
+}
+
+func CSRFMiddleware() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		if c.Method() == fiber.MethodGet || c.Method() == fiber.MethodHead || c.Method() == fiber.MethodOptions {
+			return c.Next()
+		}
+		cookie, header := c.Cookies("csrf_token"), c.Get("X-CSRF-Token")
+		if cookie == "" || header == "" || subtle.ConstantTimeCompare([]byte(cookie), []byte(header)) != 1 {
+			return c.Status(403).JSON(response.Error("invalid CSRF token"))
+		}
 		return c.Next()
 	}
 }

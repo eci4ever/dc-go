@@ -74,6 +74,9 @@ func (s *Service) Login(ctx context.Context, req LoginRequest, ipAddress, userAg
 }
 
 func (s *Service) Refresh(ctx context.Context, refreshToken string) (TokenResponse, error) {
+	if refreshToken == "" {
+		return TokenResponse{}, ErrInvalidToken
+	}
 	sess, err := s.repo.GetSessionByToken(ctx, refreshToken)
 	if err != nil {
 		return TokenResponse{}, ErrInvalidToken
@@ -84,9 +87,23 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (TokenRespon
 		return TokenResponse{}, ErrExpiredToken
 	}
 
-	s.repo.DeleteSession(ctx, sess.ID)
+	return s.rotateSession(ctx, refreshToken, sess.UserID, sess.IpAddress.String, sess.UserAgent.String)
+}
 
-	return s.createSession(ctx, sess.UserID, sess.IpAddress.String, sess.UserAgent.String)
+func (s *Service) rotateSession(ctx context.Context, token, userID, ipAddress, userAgent string) (TokenResponse, error) {
+	u, err := s.repo.GetUserByID(ctx, userID)
+	if err != nil {
+		return TokenResponse{}, err
+	}
+	sess, refreshToken, err := s.repo.RotateSession(ctx, token, userID, ipAddress, userAgent, time.Now().Add(refreshTokenTTL))
+	if err != nil {
+		return TokenResponse{}, ErrInvalidToken
+	}
+	accessToken, err := s.jwt.Sign(userID)
+	if err != nil {
+		return TokenResponse{}, err
+	}
+	return TokenResponse{AccessToken: accessToken, RefreshToken: refreshToken, User: toAuthUser(u), Session: AuthSession{ID: sess.ID, ExpiresAt: sess.ExpiresAt.Time.Format(time.RFC3339), CreatedAt: sess.CreatedAt.Time.Format(time.RFC3339), UserID: sess.UserID}}, nil
 }
 
 func (s *Service) GetSession(ctx context.Context, userID string) (SessionResponse, error) {
@@ -126,6 +143,9 @@ func (s *Service) GetSession(ctx context.Context, userID string) (SessionRespons
 }
 
 func (s *Service) Logout(ctx context.Context, refreshToken string) error {
+	if refreshToken == "" {
+		return nil
+	}
 	return s.repo.DeleteSessionByToken(ctx, refreshToken)
 }
 
@@ -135,7 +155,7 @@ func (s *Service) createSession(ctx context.Context, userID, ipAddress, userAgen
 		return TokenResponse{}, err
 	}
 
-	sess, err := s.repo.CreateSession(ctx, userID, ipAddress, userAgent, time.Now().Add(refreshTokenTTL))
+	sess, refreshToken, err := s.repo.CreateSession(ctx, userID, ipAddress, userAgent, time.Now().Add(refreshTokenTTL))
 	if err != nil {
 		return TokenResponse{}, err
 	}
@@ -147,7 +167,7 @@ func (s *Service) createSession(ctx context.Context, userID, ipAddress, userAgen
 
 	return TokenResponse{
 		AccessToken:  accessToken,
-		RefreshToken: sess.Token,
+		RefreshToken: refreshToken,
 		User:         toAuthUser(u),
 		Session: AuthSession{
 			ID:        sess.ID,
@@ -157,6 +177,8 @@ func (s *Service) createSession(ctx context.Context, userID, ipAddress, userAgen
 		},
 	}, nil
 }
+
+func (s *Service) AccessToken(userID string) (string, error) { return s.jwt.Sign(userID) }
 
 func toAuthUser(u user.User) AuthUser {
 	return AuthUser{

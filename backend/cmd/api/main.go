@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"dc-express/configs"
@@ -25,12 +26,16 @@ import (
 func main() {
 	logger.Init()
 
-	cfg := configs.Load()
+	cfg, err := configs.Load()
+	if err != nil {
+		slog.Error("invalid configuration", "error", err)
+		os.Exit(1)
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	pool := database.Connect(ctx)
+	pool := database.Connect(ctx, cfg.DatabaseURL)
 	defer pool.Close()
 
 	database.RunMigrations(ctx, pool)
@@ -52,7 +57,7 @@ func main() {
 
 	// Handlers
 	userHdl := user.NewHandler(userSvc)
-	authHdl := auth.NewHandler(authSvc)
+	authHdl := auth.NewHandler(authSvc, cfg.CookieSecure)
 	orgHdl := organization.NewHandler(orgSvc)
 	teamHdl := team.NewHandler(teamSvc)
 
@@ -62,7 +67,7 @@ func main() {
 
 	app.Use(recover.New())
 	app.Use(requestid.New())
-	app.Use(cors.New())
+	app.Use(cors.New(cors.Config{AllowOrigins: strings.Join(cfg.AllowedOrigins, ","), AllowCredentials: true, AllowHeaders: "Origin, Content-Type, Accept, X-CSRF-Token"}))
 
 	v1 := app.Group("/api/v1")
 
@@ -80,12 +85,13 @@ func main() {
 
 	// Auth middleware
 	authMw := auth.AuthMiddleware(jwtSvc)
+	csrfMw := auth.CSRFMiddleware()
 
 	// Register routes
-	user.RegisterRoutes(v1, userHdl, authMw)
-	auth.RegisterRoutes(v1, authHdl, authMw)
-	organization.RegisterRoutes(v1, orgHdl, authMw)
-	team.RegisterRoutes(v1, teamHdl, authMw)
+	user.RegisterRoutes(v1, userHdl, authMw, csrfMw)
+	auth.RegisterRoutes(v1, authHdl, authMw, csrfMw, cfg.CookieSecure)
+	organization.RegisterRoutes(v1, orgHdl, authMw, csrfMw)
+	team.RegisterRoutes(v1, teamHdl, authMw, csrfMw)
 
 	staticDir := os.Getenv("STATIC_DIR")
 	if staticDir == "" {
