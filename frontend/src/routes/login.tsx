@@ -1,25 +1,25 @@
-import { useState } from 'react'
-import { createFileRoute } from '@tanstack/react-router'
-import { LoginForm } from '@/components/login-form'
-import { useAuth } from '@/hooks/use-auth'
-import { GalleryVerticalEnd } from 'lucide-react'
+import { useState } from "react";
+import { createFileRoute } from "@tanstack/react-router";
+import { LoginForm } from "@/components/login-form";
+import { useAuth } from "@/hooks/use-auth";
+import { GalleryVerticalEnd } from "lucide-react";
 
-export const Route = createFileRoute('/login')({ component: LoginPage })
+export const Route = createFileRoute("/login")({ component: LoginPage });
 
 function LoginPage() {
-  const [error, setError] = useState<string | null>(null)
-  const [submitting, setSubmitting] = useState(false)
-  const { login } = useAuth()
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const { login } = useAuth();
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    setError(null)
-    setSubmitting(true)
-    const form = new FormData(e.currentTarget)
-    const err = await login(String(form.get('email') ?? ''), String(form.get('password') ?? ''))
-    setSubmitting(false)
-    if (err) setError(err)
-    else window.location.href = '/'
+    e.preventDefault();
+    setError(null);
+    setSubmitting(true);
+    const form = new FormData(e.currentTarget);
+    const err = await login(String(form.get("email") ?? ""), String(form.get("password") ?? ""));
+    setSubmitting(false);
+    if (err) setError(err);
+    else window.location.href = "/";
   }
 
   return (
@@ -34,5 +34,5 @@ function LoginPage() {
         <LoginForm onSubmit={handleSubmit} error={error} submitting={submitting} />
       </div>
     </div>
-  )
+  );
 }

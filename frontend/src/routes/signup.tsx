@@ -1,29 +1,33 @@
-import { useState } from 'react'
-import { createFileRoute } from '@tanstack/react-router'
-import { SignupForm } from '@/components/signup-form'
-import { useAuth } from '@/hooks/use-auth'
-import { GalleryVerticalEnd } from 'lucide-react'
+import { useState } from "react";
+import { createFileRoute } from "@tanstack/react-router";
+import { SignupForm } from "@/components/signup-form";
+import { useAuth } from "@/hooks/use-auth";
+import { GalleryVerticalEnd } from "lucide-react";
 
-export const Route = createFileRoute('/signup')({ component: SignupPage })
+export const Route = createFileRoute("/signup")({ component: SignupPage });
 
 function SignupPage() {
-  const [error, setError] = useState<string | null>(null)
-  const [submitting, setSubmitting] = useState(false)
-  const { register } = useAuth()
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const { register } = useAuth();
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    setError(null)
-    const form = new FormData(e.currentTarget)
-    if (form.get('password') !== form.get('confirm-password')) {
-      setError('Passwords do not match')
-      return
+    e.preventDefault();
+    setError(null);
+    const form = new FormData(e.currentTarget);
+    if (form.get("password") !== form.get("confirm-password")) {
+      setError("Passwords do not match");
+      return;
     }
-    setSubmitting(true)
-    const err = await register(String(form.get('name') ?? ''), String(form.get('email') ?? ''), String(form.get('password') ?? ''))
-    setSubmitting(false)
-    if (err) setError(err)
-    else window.location.href = '/'
+    setSubmitting(true);
+    const err = await register(
+      String(form.get("name") ?? ""),
+      String(form.get("email") ?? ""),
+      String(form.get("password") ?? ""),
+    );
+    setSubmitting(false);
+    if (err) setError(err);
+    else window.location.href = "/";
   }
 
   return (
@@ -38,5 +42,5 @@ function SignupPage() {
         <SignupForm onSubmit={handleSubmit} error={error} submitting={submitting} />
       </div>
     </div>
-  )
+  );
 }
