@@ -1,15 +1,13 @@
 // @ts-nocheck
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
+import { createContext, useContext, useCallback, type ReactNode } from "react";
 import { useNavigate } from "@tanstack/react-router";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import * as api from "@/lib/api";
 import type { User } from "@/lib/api";
 
-interface AuthState {
+interface AuthContext {
   user: User | null;
   loading: boolean;
-}
-
-interface AuthContext extends AuthState {
   login: (email: string, password: string) => Promise<string | null>;
   register: (name: string, email: string, password: string) => Promise<string | null>;
   logout: () => Promise<void>;
@@ -18,54 +16,65 @@ interface AuthContext extends AuthState {
 const AuthCtx = createContext<AuthContext | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<AuthState>({ user: null, loading: true });
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const session = useQuery({
+    queryKey: ["session"],
+    queryFn: async () => {
+      const response = await api.getSession();
+      return response.success && response.data ? response.data : null;
+    },
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  });
 
-  const fetchSession = useCallback(async () => {
-    const res = await api.getSession();
-    if (res.success && res.data) {
-      setState({ user: res.data.user, loading: false });
-    } else {
-      setState({ user: null, loading: false });
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchSession();
-  }, [fetchSession]);
-
-  const login = useCallback(async (email: string, password: string): Promise<string | null> => {
-    const res = await api.login(email, password);
-    if (res.success && res.data) {
-      setState({ user: res.data.user, loading: false });
-      return null;
-    }
-    return res.message ?? "Login failed";
-  }, []);
-
-  const register = useCallback(
-    async (name: string, email: string, password: string): Promise<string | null> => {
-      const res = await api.register(name, email, password);
-      if (res.success && res.data) {
-        setState({ user: res.data.user, loading: false });
+  const login = useCallback(
+    async (email: string, password: string) => {
+      const response = await api.login(email, password);
+      if (response.success && response.data) {
+        queryClient.setQueryData(["session"], response.data);
         return null;
       }
-      return res.message ?? "Registration failed";
+      return response.message ?? "Login failed";
     },
-    [],
+    [queryClient],
+  );
+
+  const register = useCallback(
+    async (name: string, email: string, password: string) => {
+      const response = await api.register(name, email, password);
+      if (response.success && response.data) {
+        queryClient.setQueryData(["session"], response.data);
+        return null;
+      }
+      return response.message ?? "Registration failed";
+    },
+    [queryClient],
   );
 
   const logout = useCallback(async () => {
     await api.logout();
-    setState({ user: null, loading: false });
-    await navigate({ to: "/login" });
-  }, []);
+    queryClient.clear();
+    await navigate({ to: "/login", replace: true });
+  }, [navigate, queryClient]);
 
-  return <AuthCtx value={{ ...state, login, register, logout }}>{children}</AuthCtx>;
+  return (
+    <AuthCtx
+      value={{
+        user: session.data?.user ?? null,
+        loading: session.isLoading,
+        login,
+        register,
+        logout,
+      }}
+    >
+      {children}
+    </AuthCtx>
+  );
 }
 
 export function useAuth(): AuthContext {
-  const ctx = useContext(AuthCtx);
-  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
-  return ctx;
+  const context = useContext(AuthCtx);
+  if (!context) throw new Error("useAuth must be used within AuthProvider");
+  return context;
 }

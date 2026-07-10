@@ -48,17 +48,19 @@ export function TeamSwitcher({ teams }) {
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent
-            className="w-fit"
+            className="w-60 p-2"
             align="start"
             side={isMobile ? "bottom" : "right"}
             sideOffset={4}
           >
-            <DropdownMenuLabel className="text-xs text-muted-foreground">Teams</DropdownMenuLabel>
+            <DropdownMenuLabel className="px-2 py-2 text-xs text-muted-foreground">
+              Teams
+            </DropdownMenuLabel>
             {teams.map((team, index) => (
               <DropdownMenuItem
                 key={team.name}
                 onClick={() => setActiveTeam(team)}
-                className="gap-2 p-2"
+                className="gap-3 px-2 py-2"
               >
                 <div className="flex size-6 items-center justify-center rounded-md border">
                   {team.logo}

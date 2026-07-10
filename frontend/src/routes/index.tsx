@@ -2,8 +2,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { Link } from "@tanstack/react-router";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Check } from "lucide-react";
 
 interface HealthResponse {
   success: boolean;
@@ -32,11 +34,11 @@ function LandingPage() {
       <section className="w-full max-w-4xl space-y-10">
         <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
           <div className="space-y-2">
-            <p className="text-sm font-medium uppercase tracking-[0.2em] text-primary">
-              DC Express
-            </p>
+            <Badge variant="secondary" className="w-fit rounded-full px-3 py-1">
+              DC Express Platform
+            </Badge>
             <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
-              Everything is running smoothly.
+              Your services, at a glance.
             </h1>
             <p className="max-w-xl text-muted-foreground">
               A simple, reliable foundation for your next project.
@@ -52,7 +54,29 @@ function LandingPage() {
           </div>
         </div>
         <div className="space-y-3">
-          <p className="text-sm font-medium text-muted-foreground">Live service status</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-medium">Live service status</p>
+              <p className="text-sm text-muted-foreground">
+                Automatically refreshed every 5 seconds
+              </p>
+            </div>
+            <Badge
+              variant={isError ? "destructive" : "outline"}
+              className={
+                !isError && !isLoading
+                  ? "gap-2 rounded-full border-0 bg-muted px-3 py-1 text-foreground"
+                  : "gap-2 rounded-full px-3 py-1"
+              }
+            >
+              {!isError && !isLoading && (
+                <span className="flex size-5 items-center justify-center rounded-full bg-emerald-600 text-white">
+                  <Check className="size-3.5" />
+                </span>
+              )}
+              {isLoading ? "Checking" : isError ? "Offline" : "Operational"}
+            </Badge>
+          </div>
           <div className="grid gap-4 md:grid-cols-3">
             <StatusCard label="API status" value={value(health?.status)} />
             <StatusCard label="Database status" value={value(health?.db)} />
@@ -69,17 +93,33 @@ function LandingPage() {
 
 function StatusCard({ label, value }: { label: string; value: string }) {
   return (
-    <Card>
+    <Card className="border-border/60 bg-card/80 shadow-sm transition-shadow hover:shadow-md">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-          <span
-            className={`size-2 rounded-full ${value === "Unavailable" ? "bg-destructive" : "bg-emerald-500"}`}
-          />
-          {label}
-        </CardTitle>
+        <CardTitle className="text-sm font-medium text-muted-foreground">{label}</CardTitle>
       </CardHeader>
-      <CardContent>
-        <p className="text-2xl font-semibold capitalize">{value}</p>
+      <CardContent className="flex items-end justify-between gap-3">
+        <Badge
+          variant={
+            value === "Unavailable"
+              ? "destructive"
+              : value === "Checking…"
+                ? "outline"
+                : "secondary"
+          }
+          className={
+            value !== "Unavailable" && value !== "Checking…"
+              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+              : undefined
+          }
+        >
+          {value !== "Unavailable" && value !== "Checking…" && (
+            <span className="flex size-4 items-center justify-center rounded-full bg-emerald-600 text-white">
+              <Check className="size-3" />
+            </span>
+          )}
+          {value}
+        </Badge>
+        <CardDescription className="text-right">Live reading</CardDescription>
       </CardContent>
     </Card>
   );

@@ -21,7 +21,7 @@ function LoginPage() {
     const err = await login(String(form.get("email") ?? ""), String(form.get("password") ?? ""));
     setSubmitting(false);
     if (err) setError(err);
-    else await navigate({ to: "/dashboard" });
+    else void navigate({ to: "/dashboard", replace: true });
   }
 
   return (
