@@ -54,9 +54,9 @@ export function LoginForm({ className, onSubmit, error, submitting = false, ...p
               <Field>
                 <div className="flex items-center">
                   <FieldLabel htmlFor="password">Password</FieldLabel>
-                  <a href="#" className="ml-auto text-sm underline-offset-4 hover:underline">
+                  <Link to="/" className="ml-auto text-sm underline-offset-4 hover:underline">
                     Forgot your password?
-                  </a>
+                  </Link>
                 </div>
                 <Input id="password" name="password" type="password" required />
               </Field>
@@ -74,8 +74,8 @@ export function LoginForm({ className, onSubmit, error, submitting = false, ...p
         </CardContent>
       </Card>
       <FieldDescription className="px-6 text-center">
-        By continuing, you agree to our <a href="#">Terms of Service</a> and{" "}
-        <a href="#">Privacy Policy</a>.
+        By continuing, you agree to our <Link to="/">Terms of Service</Link> and{" "}
+        <Link to="/">Privacy Policy</Link>.
       </FieldDescription>
     </div>
   );
