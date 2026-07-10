@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { useState } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { SignupForm } from "@/components/signup-form";
 import { useAuth } from "@/hooks/use-auth";
 import { GalleryVerticalEnd } from "lucide-react";
@@ -11,6 +11,7 @@ function SignupPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const { register } = useAuth();
+  const navigate = useNavigate();
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -28,7 +29,7 @@ function SignupPage() {
     );
     setSubmitting(false);
     if (err) setError(err);
-    else window.location.href = "/";
+    else await navigate({ to: "/dashboard" });
   }
 
   return (
