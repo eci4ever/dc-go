@@ -7,12 +7,12 @@ COPY frontend/ .
 RUN npm run build
 
 # Stage 2: Build Go backend
-FROM golang:1.21-alpine AS backend-builder
+FROM golang:1.25-alpine AS backend-builder
 WORKDIR /app
 COPY backend/go.mod backend/go.sum ./
 RUN go mod download
 COPY backend/ .
-RUN CGO_ENABLED=0 GOOS=linux go build -o server .
+RUN CGO_ENABLED=0 GOOS=linux go build -o server ./cmd/api/
 
 # Stage 3: Final image
 FROM alpine:3.19
