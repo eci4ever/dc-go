@@ -1,11 +1,18 @@
 // @ts-nocheck
 import { useState } from "react";
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
 import { LoginForm } from "@/components/login-form";
 import { useAuth } from "@/hooks/use-auth";
 import { GalleryVerticalEnd } from "lucide-react";
+import { sessionQueryOptions } from "@/lib/session";
 
-export const Route = createFileRoute("/login")({ component: LoginPage });
+export const Route = createFileRoute("/login")({
+  beforeLoad: async ({ context }) => {
+    const session = await context.queryClient.ensureQueryData(sessionQueryOptions);
+    if (session) throw redirect({ to: "/dashboard", replace: true });
+  },
+  component: LoginPage,
+});
 
 function LoginPage() {
   const [error, setError] = useState<string | null>(null);
@@ -21,7 +28,7 @@ function LoginPage() {
     const err = await login(String(form.get("email") ?? ""), String(form.get("password") ?? ""));
     setSubmitting(false);
     if (err) setError(err);
-    else void navigate({ to: "/dashboard", replace: true });
+    else await navigate({ to: "/dashboard", replace: true });
   }
 
   return (

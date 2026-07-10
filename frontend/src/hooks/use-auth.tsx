@@ -1,11 +1,11 @@
-// @ts-nocheck
-import { createContext, useContext, useCallback, type ReactNode } from "react";
+import { createContext, useCallback, useContext, type ReactNode } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
 import * as api from "@/lib/api";
+import { sessionQueryKey, sessionQueryOptions } from "@/lib/session";
 import type { User } from "@/lib/api";
 
-interface AuthContext {
+interface AuthContextValue {
   user: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<string | null>;
@@ -13,68 +13,67 @@ interface AuthContext {
   logout: () => Promise<void>;
 }
 
-const AuthCtx = createContext<AuthContext | null>(null);
+const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const session = useQuery({
-    queryKey: ["session"],
-    queryFn: async () => {
-      const response = await api.getSession();
-      return response.success && response.data ? response.data : null;
-    },
-    staleTime: 5 * 60 * 1000,
-    retry: false,
+  const navigate = useNavigate();
+  const session = useQuery(sessionQueryOptions);
+
+  const loginMutation = useMutation({
+    mutationFn: ({ email, password }: { email: string; password: string }) =>
+      api.login(email, password),
   });
+  const registerMutation = useMutation({
+    mutationFn: ({ name, email, password }: { name: string; email: string; password: string }) =>
+      api.register(name, email, password),
+  });
+  const logoutMutation = useMutation({ mutationFn: api.logout });
 
   const login = useCallback(
     async (email: string, password: string) => {
-      const response = await api.login(email, password);
-      if (response.success && response.data) {
-        queryClient.setQueryData(["session"], response.data);
-        return null;
-      }
-      return response.message ?? "Login failed";
+      const response = await loginMutation.mutateAsync({ email, password });
+      if (!response.success || !response.data) return response.message ?? "Login failed";
+      queryClient.setQueryData(sessionQueryKey, response.data);
+      return null;
     },
-    [queryClient],
+    [loginMutation, queryClient],
   );
 
   const register = useCallback(
     async (name: string, email: string, password: string) => {
-      const response = await api.register(name, email, password);
-      if (response.success && response.data) {
-        queryClient.setQueryData(["session"], response.data);
-        return null;
-      }
-      return response.message ?? "Registration failed";
+      const response = await registerMutation.mutateAsync({ name, email, password });
+      if (!response.success || !response.data) return response.message ?? "Registration failed";
+      queryClient.setQueryData(sessionQueryKey, response.data);
+      return null;
     },
-    [queryClient],
+    [registerMutation, queryClient],
   );
 
   const logout = useCallback(async () => {
-    await api.logout();
-    queryClient.clear();
+    await logoutMutation.mutateAsync();
+    queryClient.setQueryData(sessionQueryKey, null);
+    queryClient.removeQueries({ predicate: (query) => query.queryKey[0] !== "auth" });
     await navigate({ to: "/login", replace: true });
-  }, [navigate, queryClient]);
+  }, [logoutMutation, navigate, queryClient]);
 
   return (
-    <AuthCtx
+    <AuthContext.Provider
       value={{
         user: session.data?.user ?? null,
-        loading: session.isLoading,
+        loading: session.isPending,
         login,
         register,
         logout,
       }}
     >
       {children}
-    </AuthCtx>
+    </AuthContext.Provider>
   );
 }
 
-export function useAuth(): AuthContext {
-  const context = useContext(AuthCtx);
+export function useAuth(): AuthContextValue {
+  const context = useContext(AuthContext);
   if (!context) throw new Error("useAuth must be used within AuthProvider");
   return context;
 }

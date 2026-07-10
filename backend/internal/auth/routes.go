@@ -7,5 +7,5 @@ func RegisterRoutes(router fiber.Router, h *Handler, authMw, csrfMw fiber.Handle
 	router.Post("/auth/login", h.Login)
 	router.Post("/auth/refresh", csrfMw, h.Refresh)
 	router.Get("/auth/session", authMw, h.GetSession)
-	router.Post("/auth/logout", authMw, csrfMw, h.Logout)
+	router.Post("/auth/logout", csrfMw, h.Logout)
 }

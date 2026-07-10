@@ -1,11 +1,18 @@
 // @ts-nocheck
 import { useState } from "react";
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
 import { SignupForm } from "@/components/signup-form";
 import { useAuth } from "@/hooks/use-auth";
 import { GalleryVerticalEnd } from "lucide-react";
+import { sessionQueryOptions } from "@/lib/session";
 
-export const Route = createFileRoute("/signup")({ component: SignupPage });
+export const Route = createFileRoute("/signup")({
+  beforeLoad: async ({ context }) => {
+    const session = await context.queryClient.ensureQueryData(sessionQueryOptions);
+    if (session) throw redirect({ to: "/dashboard", replace: true });
+  },
+  component: SignupPage,
+});
 
 function SignupPage() {
   const [error, setError] = useState<string | null>(null);
@@ -29,7 +36,7 @@ function SignupPage() {
     );
     setSubmitting(false);
     if (err) setError(err);
-    else void navigate({ to: "/dashboard", replace: true });
+    else await navigate({ to: "/dashboard", replace: true });
   }
 
   return (

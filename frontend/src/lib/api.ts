@@ -53,7 +53,7 @@ async function refresh(): Promise<boolean> {
 async function request<T>(
   path: string,
   options: RequestInit = {},
-  retry = true,
+  retryAuth = true,
 ): Promise<ApiResponse<T>> {
   const headers: Record<string, string> = { ...(options.headers as Record<string, string>) };
   if (options.body) headers["Content-Type"] = "application/json";
@@ -61,26 +61,36 @@ async function request<T>(
     headers["X-CSRF-Token"] = csrfToken() ?? "";
   try {
     const res = await fetch(`${BASE}${path}`, { ...options, headers, credentials: "include" });
-    if (res.status === 401 && retry && path !== "/auth/refresh" && (await refresh()))
+    if (res.status === 401 && retryAuth && path !== "/auth/refresh" && (await refresh()))
       return request(path, options, false);
-    return (await res.json()) as ApiResponse<T>;
+    const body = await res.json().catch(() => null);
+    if (body) return body as ApiResponse<T>;
+    return { success: res.ok, message: res.ok ? undefined : `Request failed (${res.status})` };
   } catch {
     return { success: false, message: "Unable to reach the server. Please try again." };
   }
 }
 
 export const login = (email: string, password: string) =>
-  request<SessionData>("/auth/login", {
-    method: "POST",
-    body: JSON.stringify({ email, password }),
-  });
+  request<SessionData>(
+    "/auth/login",
+    {
+      method: "POST",
+      body: JSON.stringify({ email, password }),
+    },
+    false,
+  );
 export const register = (name: string, email: string, password: string) =>
-  request<SessionData>("/auth/register", {
-    method: "POST",
-    body: JSON.stringify({ name, email, password }),
-  });
+  request<SessionData>(
+    "/auth/register",
+    {
+      method: "POST",
+      body: JSON.stringify({ name, email, password }),
+    },
+    false,
+  );
 export async function logout() {
-  await request("/auth/logout", { method: "POST" }, false);
+  return request("/auth/logout", { method: "POST" });
 }
 export const getSession = () => request<SessionData>("/auth/session");
 export type { User, Session, SessionData, ApiResponse };

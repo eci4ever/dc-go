@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 
@@ -98,6 +99,9 @@ func main() {
 		staticDir = "./public"
 	}
 	app.Static("/", staticDir)
+	app.Get("/*", func(c *fiber.Ctx) error {
+		return c.SendFile(filepath.Join(staticDir, "index.html"))
+	})
 
 	go func() {
 		slog.Info("server starting", "port", cfg.Port)
