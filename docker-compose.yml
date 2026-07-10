@@ -5,10 +5,8 @@ services:
       - "3000:3000"
     environment:
       - DATABASE_URL=${DATABASE_URL:?set DATABASE_URL}
-      - PORT=3000
       - JWT_SECRET=${JWT_SECRET:?set JWT_SECRET}
-      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
-      - COOKIE_SECURE=${COOKIE_SECURE:-false}
+      - ENVIRONMENT=production
     depends_on:
       db:
         condition: service_healthy

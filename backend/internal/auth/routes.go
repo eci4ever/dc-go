@@ -2,7 +2,7 @@ package auth
 
 import "github.com/gofiber/fiber/v2"
 
-func RegisterRoutes(router fiber.Router, h *Handler, authMw, csrfMw fiber.Handler, secure bool) {
+func RegisterRoutes(router fiber.Router, h *Handler, authMw, csrfMw fiber.Handler) {
 	router.Post("/auth/register", h.Register)
 	router.Post("/auth/login", h.Login)
 	router.Post("/auth/refresh", csrfMw, h.Refresh)

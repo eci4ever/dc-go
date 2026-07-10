@@ -3,43 +3,32 @@ package configs
 import (
 	"errors"
 	"os"
-	"strings"
 	"unicode"
 )
 
 type Config struct {
-	Port           string
-	DatabaseURL    string
-	JWTSecret      string
-	JWTIssuer      string
-	JWTAudience    string
-	AllowedOrigins []string
-	CookieSecure   bool
-	Environment    string
+	Port         string
+	DatabaseURL  string
+	JWTSecret    string
+	JWTIssuer    string
+	JWTAudience  string
+	CookieSecure bool
+	Environment  string
 }
 
 func Load() (Config, error) {
+	environment := getEnv("ENVIRONMENT", "development")
 	cfg := Config{
 		Port:         getEnv("PORT", "3000"),
 		DatabaseURL:  os.Getenv("DATABASE_URL"),
 		JWTSecret:    os.Getenv("JWT_SECRET"),
 		JWTIssuer:    getEnv("JWT_ISSUER", "dc-express"),
 		JWTAudience:  getEnv("JWT_AUDIENCE", "dc-express"),
-		Environment:  getEnv("ENVIRONMENT", "development"),
-		CookieSecure: os.Getenv("COOKIE_SECURE") == "true",
-	}
-	if origins := os.Getenv("ALLOWED_ORIGINS"); origins != "" {
-		for _, origin := range strings.Split(origins, ",") {
-			if origin = strings.TrimSpace(origin); origin != "" {
-				cfg.AllowedOrigins = append(cfg.AllowedOrigins, origin)
-			}
-		}
+		Environment:  environment,
+		CookieSecure: environment == "production",
 	}
 	if cfg.DatabaseURL == "" || !strongSecret(cfg.JWTSecret) {
 		return Config{}, errors.New("DATABASE_URL and a JWT_SECRET of at least 32 characters are required")
-	}
-	if cfg.Environment == "production" && (len(cfg.AllowedOrigins) == 0 || !cfg.CookieSecure) {
-		return Config{}, errors.New("production requires ALLOWED_ORIGINS and COOKIE_SECURE=true")
 	}
 	return cfg, nil
 }

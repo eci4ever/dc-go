@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"strings"
 	"syscall"
 
 	"dc-express/configs"
@@ -19,7 +18,6 @@ import (
 	"dc-express/pkg/response"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/gofiber/fiber/v2/middleware/requestid"
 )
@@ -68,7 +66,6 @@ func main() {
 
 	app.Use(recover.New())
 	app.Use(requestid.New())
-	app.Use(cors.New(cors.Config{AllowOrigins: strings.Join(cfg.AllowedOrigins, ","), AllowCredentials: true, AllowHeaders: "Origin, Content-Type, Accept, X-CSRF-Token"}))
 
 	v1 := app.Group("/api/v1")
 
@@ -90,7 +87,7 @@ func main() {
 
 	// Register routes
 	user.RegisterRoutes(v1, userHdl, authMw, csrfMw)
-	auth.RegisterRoutes(v1, authHdl, authMw, csrfMw, cfg.CookieSecure)
+	auth.RegisterRoutes(v1, authHdl, authMw, csrfMw)
 	organization.RegisterRoutes(v1, orgHdl, authMw, csrfMw)
 	team.RegisterRoutes(v1, teamHdl, authMw, csrfMw)
 
