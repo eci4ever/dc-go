@@ -16,11 +16,12 @@ import (
 )
 
 type Repository struct {
-	q *db.Queries
+	q    *db.Queries
+	pool *pgxpool.Pool
 }
 
 func NewRepository(pool *pgxpool.Pool) *Repository {
-	return &Repository{q: db.New(pool)}
+	return &Repository{q: db.New(pool), pool: pool}
 }
 
 func (r *Repository) Create(ctx context.Context, name, slug string, logo *string, creatorID string) (Organization, error) {
@@ -167,10 +168,25 @@ func (r *Repository) UpdateMemberRole(ctx context.Context, orgID, userID, role s
 }
 
 func (r *Repository) RemoveMember(ctx context.Context, orgID, userID string) error {
-	return r.q.DeleteMember(ctx, db.DeleteMemberParams{
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	q := db.New(tx)
+	if err := q.DeleteMember(ctx, db.DeleteMemberParams{
 		OrganizationID: orgID,
 		UserID:         userID,
-	})
+	}); err != nil {
+		return err
+	}
+	if err := q.ClearActiveOrganizationForMember(ctx, db.ClearActiveOrganizationForMemberParams{
+		ActiveOrganizationID: pgtype.Text{String: orgID, Valid: true},
+		UserID:               userID,
+	}); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 func (r *Repository) IsMember(ctx context.Context, orgID, userID string) (bool, error) {
@@ -193,7 +209,7 @@ func (r *Repository) CreateInvitation(ctx context.Context, orgID, email, role, i
 		ID:             id,
 		OrganizationID: orgID,
 		Email:          email,
-		Role:           textPtr(role),
+		Role:           role,
 		ExpiresAt:      timestamptz(expiresAt),
 		InviterID:      inviterID,
 	})
@@ -253,7 +269,7 @@ func (r *Repository) AcceptInvitation(ctx context.Context, id, userID string) er
 		ID:             memberID,
 		OrganizationID: inv.OrganizationID,
 		UserID:         userID,
-		Role:           inv.Role.String,
+		Role:           inv.Role,
 	})
 	if err != nil {
 		return err
@@ -301,7 +317,7 @@ func mapInvitation(i db.Invitation) Invitation {
 		ID:        i.ID,
 		OrgID:     i.OrganizationID,
 		Email:     i.Email,
-		Role:      i.Role.String,
+		Role:      i.Role,
 		Status:    i.Status,
 		InviterID: i.InviterID,
 		ExpiresAt: i.ExpiresAt.Time.Format(time3339),

@@ -1,32 +1,51 @@
 package user
 
+import "time"
+
 type UpdateUserRequest struct {
 	Name  string  `json:"name" validate:"required,min=1,max=100"`
 	Email string  `json:"email" validate:"required,email,max=100"`
 	Image *string `json:"image,omitempty"`
 }
 
+type UpdateRoleRequest struct {
+	Role Role `json:"role" validate:"required,oneof=user admin"`
+}
+
 type UserResponse struct {
-	ID            string  `json:"id"`
-	Name          string  `json:"name"`
-	Email         string  `json:"email"`
-	EmailVerified bool    `json:"email_verified"`
-	Image         *string `json:"image,omitempty"`
-	Role          *string `json:"role,omitempty"`
-	CreatedAt     string  `json:"created_at"`
-	UpdatedAt     string  `json:"updated_at"`
+	ID               string  `json:"id"`
+	Name             string  `json:"name"`
+	Email            string  `json:"email"`
+	EmailVerified    bool    `json:"emailVerified"`
+	Image            *string `json:"image"`
+	CreatedAt        string  `json:"createdAt"`
+	UpdatedAt        string  `json:"updatedAt"`
+	Role             Role    `json:"role"`
+	Banned           bool    `json:"banned"`
+	BanReason        *string `json:"banReason"`
+	BanExpires       *string `json:"banExpires"`
+	TwoFactorEnabled bool    `json:"twoFactorEnabled"`
 }
 
 func toResponse(u User) UserResponse {
+	var banExpires *string
+	if u.BanExpires != nil {
+		value := formatTime(*u.BanExpires)
+		banExpires = &value
+	}
 	return UserResponse{
-		ID:            u.ID,
-		Name:          u.Name,
-		Email:         u.Email,
-		EmailVerified: u.EmailVerified,
-		Image:         u.Image,
-		Role:          u.Role,
-		CreatedAt:     u.CreatedAt.Format(time3339),
-		UpdatedAt:     u.UpdatedAt.Format(time3339),
+		ID:               u.ID,
+		Name:             u.Name,
+		Email:            u.Email,
+		EmailVerified:    u.EmailVerified,
+		Image:            u.Image,
+		CreatedAt:        formatTime(u.CreatedAt),
+		UpdatedAt:        formatTime(u.UpdatedAt),
+		Role:             u.Role,
+		Banned:           u.Banned,
+		BanReason:        u.BanReason,
+		BanExpires:       banExpires,
+		TwoFactorEnabled: u.TwoFactorEnabled,
 	}
 }
 
@@ -38,4 +57,6 @@ func toResponses(users []User) []UserResponse {
 	return resp
 }
 
-const time3339 = "2006-01-02T15:04:05Z07:00"
+func formatTime(value time.Time) string {
+	return value.UTC().Format(time.RFC3339Nano)
+}

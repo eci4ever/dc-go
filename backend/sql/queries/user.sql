@@ -8,11 +8,15 @@ SELECT * FROM "user" WHERE email = $1;
 SELECT * FROM "user" ORDER BY name;
 
 -- name: CreateUser :one
-INSERT INTO "user" (id, name, email, image, role)
-VALUES ($1, $2, $3, $4, $5) RETURNING *;
+INSERT INTO "user" (id, name, email, image)
+VALUES ($1, $2, $3, $4) RETURNING *;
 
 -- name: UpdateUser :one
-UPDATE "user" SET name=$2, email=$3, image=$4, role=$5, updated_at=NOW()
+UPDATE "user" SET name=$2, email=$3, image=$4, updated_at=NOW()
+WHERE id=$1 RETURNING *;
+
+-- name: UpdateUserRole :one
+UPDATE "user" SET role=$2, updated_at=NOW()
 WHERE id=$1 RETURNING *;
 
 -- name: DeleteUser :exec

@@ -28,7 +28,7 @@ type Invitation struct {
 	ID             string             `json:"id"`
 	OrganizationID string             `json:"organization_id"`
 	Email          string             `json:"email"`
-	Role           pgtype.Text        `json:"role"`
+	Role           string             `json:"role"`
 	TeamID         pgtype.Text        `json:"team_id"`
 	Status         string             `json:"status"`
 	ExpiresAt      pgtype.Timestamptz `json:"expires_at"`
@@ -83,17 +83,18 @@ type TeamMember struct {
 }
 
 type User struct {
-	ID            string             `json:"id"`
-	Name          string             `json:"name"`
-	Email         string             `json:"email"`
-	EmailVerified bool               `json:"email_verified"`
-	Image         pgtype.Text        `json:"image"`
-	CreatedAt     pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
-	Role          pgtype.Text        `json:"role"`
-	Banned        pgtype.Bool        `json:"banned"`
-	BanReason     pgtype.Text        `json:"ban_reason"`
-	BanExpires    pgtype.Timestamptz `json:"ban_expires"`
+	ID               string             `json:"id"`
+	Name             string             `json:"name"`
+	Email            string             `json:"email"`
+	EmailVerified    bool               `json:"email_verified"`
+	Image            pgtype.Text        `json:"image"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	Role             string             `json:"role"`
+	Banned           bool               `json:"banned"`
+	BanReason        pgtype.Text        `json:"ban_reason"`
+	BanExpires       pgtype.Timestamptz `json:"ban_expires"`
+	TwoFactorEnabled bool               `json:"two_factor_enabled"`
 }
 
 type Verification struct {

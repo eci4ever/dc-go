@@ -3,10 +3,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import * as api from "@/lib/api";
 import { sessionQueryKey, sessionQueryOptions } from "@/lib/session";
-import type { User } from "@/lib/api";
+import type { SessionData, User } from "@/lib/api";
 
 interface AuthContextValue {
   user: User | null;
+  session: SessionData | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<string | null>;
   register: (name: string, email: string, password: string) => Promise<string | null>;
@@ -61,6 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <AuthContext.Provider
       value={{
         user: session.data?.user ?? null,
+        session: session.data ?? null,
         loading: session.isPending,
         login,
         register,

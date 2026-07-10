@@ -1,12 +1,18 @@
 package auth
 
 import (
+	"context"
 	"crypto/subtle"
 
+	"dc-express/internal/user"
 	"dc-express/pkg/response"
 
 	"github.com/gofiber/fiber/v2"
 )
+
+type UserRoleLookup interface {
+	GetByID(context.Context, string) (user.User, error)
+}
 
 func AuthMiddleware(jwt *JWTService) fiber.Handler {
 	return func(c *fiber.Ctx) error {
@@ -16,6 +22,20 @@ func AuthMiddleware(jwt *JWTService) fiber.Handler {
 		}
 
 		c.Locals("user_id", claims.UserID)
+		return c.Next()
+	}
+}
+
+func RequireUserRole(repo UserRoleLookup, role user.Role) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		userID, _ := c.Locals("user_id").(string)
+		u, err := repo.GetByID(c.UserContext(), userID)
+		if err != nil {
+			return c.Status(500).JSON(response.Error("internal server error"))
+		}
+		if u.Role != role {
+			return c.Status(403).JSON(response.Error("forbidden"))
+		}
 		return c.Next()
 	}
 }

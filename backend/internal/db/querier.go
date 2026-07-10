@@ -9,6 +9,7 @@ import (
 )
 
 type Querier interface {
+	ClearActiveOrganizationForMember(ctx context.Context, arg ClearActiveOrganizationForMemberParams) error
 	CreateAccount(ctx context.Context, arg CreateAccountParams) (Account, error)
 	CreateInvitation(ctx context.Context, arg CreateInvitationParams) (Invitation, error)
 	CreateMember(ctx context.Context, arg CreateMemberParams) (Member, error)
@@ -36,6 +37,7 @@ type Querier interface {
 	GetOrganization(ctx context.Context, id string) (Organization, error)
 	GetOrganizationBySlug(ctx context.Context, slug string) (Organization, error)
 	GetSessionByToken(ctx context.Context, token string) (Session, error)
+	GetSessionContextByToken(ctx context.Context, token string) (GetSessionContextByTokenRow, error)
 	GetTeam(ctx context.Context, id string) (Team, error)
 	GetTeamMember(ctx context.Context, arg GetTeamMemberParams) (TeamMember, error)
 	GetUser(ctx context.Context, id string) (User, error)
@@ -53,8 +55,10 @@ type Querier interface {
 	UpdateInvitationStatus(ctx context.Context, arg UpdateInvitationStatusParams) (Invitation, error)
 	UpdateMemberRole(ctx context.Context, arg UpdateMemberRoleParams) (Member, error)
 	UpdateOrganization(ctx context.Context, arg UpdateOrganizationParams) (Organization, error)
+	UpdateSessionActiveOrganization(ctx context.Context, arg UpdateSessionActiveOrganizationParams) (Session, error)
 	UpdateTeam(ctx context.Context, arg UpdateTeamParams) (Team, error)
 	UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error)
+	UpdateUserRole(ctx context.Context, arg UpdateUserRoleParams) (User, error)
 }
 
 var _ Querier = (*Queries)(nil)

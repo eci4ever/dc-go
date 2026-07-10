@@ -29,7 +29,7 @@ func (h *Handler) Register(c *fiber.Ctx) error {
 		return c.Status(400).JSON(response.Error(err.Error()))
 	}
 
-	tokens, err := h.svc.Register(c.UserContext(), req)
+	tokens, err := h.svc.Register(c.UserContext(), req, c.IP(), c.Get("User-Agent"))
 	if err != nil {
 		if errors.Is(err, ErrEmailExists) {
 			return c.Status(409).JSON(response.Error("email already exists"))
@@ -78,14 +78,37 @@ func (h *Handler) Refresh(c *fiber.Ctx) error {
 func (h *Handler) GetSession(c *fiber.Ctx) error {
 	userID := c.Locals("user_id").(string)
 
-	sess, err := h.svc.GetSession(c.UserContext(), userID)
+	sess, err := h.svc.GetSession(c.UserContext(), userID, c.Cookies("refresh_token"))
 	if err != nil {
-		if errors.Is(err, ErrInvalidToken) {
+		if errors.Is(err, ErrInvalidToken) || errors.Is(err, ErrExpiredToken) {
 			return c.Status(401).JSON(response.Error("unauthorized"))
 		}
 		return c.Status(500).JSON(response.Error("internal server error"))
 	}
 
+	return c.JSON(response.OK(sess))
+}
+
+func (h *Handler) SetActiveOrganization(c *fiber.Ctx) error {
+	var req SetActiveOrganizationRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(400).JSON(response.Error("invalid request body"))
+	}
+	if err := validator.Validate(req); err != nil {
+		return c.Status(400).JSON(response.Error(err.Error()))
+	}
+
+	sess, err := h.svc.SetActiveOrganization(c.UserContext(), c.Locals("user_id").(string), c.Cookies("refresh_token"), req.OrganizationID)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrForbidden):
+			return c.Status(403).JSON(response.Error("forbidden"))
+		case errors.Is(err, ErrInvalidToken):
+			return c.Status(401).JSON(response.Error("invalid session"))
+		default:
+			return c.Status(500).JSON(response.Error("internal server error"))
+		}
+	}
 	return c.JSON(response.OK(sess))
 }
 

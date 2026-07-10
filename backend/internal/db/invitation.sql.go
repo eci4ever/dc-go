@@ -20,7 +20,7 @@ type CreateInvitationParams struct {
 	ID             string             `json:"id"`
 	OrganizationID string             `json:"organization_id"`
 	Email          string             `json:"email"`
-	Role           pgtype.Text        `json:"role"`
+	Role           string             `json:"role"`
 	ExpiresAt      pgtype.Timestamptz `json:"expires_at"`
 	InviterID      string             `json:"inviter_id"`
 }

@@ -8,4 +8,5 @@ var (
 	ErrInvalidToken       = errors.New("invalid token")
 	ErrExpiredToken       = errors.New("expired token")
 	ErrUserBanned         = errors.New("user is banned")
+	ErrForbidden          = errors.New("forbidden")
 )

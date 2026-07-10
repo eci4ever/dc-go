@@ -6,7 +6,7 @@ import * as React from "react";
 import { NavMain } from "@/components/nav-main";
 import { NavProjects } from "@/components/nav-projects";
 import { NavUser } from "@/components/nav-user";
-import { TeamSwitcher } from "@/components/team-switcher";
+import { OrganizationSwitcher } from "@/components/team-switcher";
 import {
   Sidebar,
   SidebarContent,
@@ -157,14 +157,24 @@ const data = {
   ],
 };
 
-export function AppSidebar({ user, onLogout, ...props }) {
+export function AppSidebar({ user, session, onLogout, ...props }) {
+  const navMain =
+    user.role === "admin"
+      ? [
+          ...data.navMain,
+          {
+            title: "Administration",
+            url: "#",
+            icon: <Settings2Icon />,
+            items: [{ title: "Users", url: "/admin/users" }],
+          },
+        ]
+      : data.navMain;
   return (
     <Sidebar collapsible="icon" {...props}>
-      <SidebarHeader>
-        <TeamSwitcher teams={data.teams} />
-      </SidebarHeader>
+      <SidebarHeader>{session && <OrganizationSwitcher session={session} />}</SidebarHeader>
       <SidebarContent>
-        <NavMain items={data.navMain} />
+        <NavMain items={navMain} />
         <NavProjects projects={data.projects} />
       </SidebarContent>
       <SidebarFooter>

@@ -74,3 +74,34 @@ func (h *Handler) Delete(c *fiber.Ctx) error {
 
 	return c.SendStatus(204)
 }
+
+func (h *Handler) List(c *fiber.Ctx) error {
+	users, err := h.svc.List(c.UserContext())
+	if err != nil {
+		return c.Status(500).JSON(response.Error("internal server error"))
+	}
+	return c.JSON(response.OK(users))
+}
+
+func (h *Handler) UpdateRole(c *fiber.Ctx) error {
+	var req UpdateRoleRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(400).JSON(response.Error("invalid request body"))
+	}
+	if err := validator.Validate(req); err != nil {
+		return c.Status(400).JSON(response.Error(err.Error()))
+	}
+
+	u, err := h.svc.UpdateRole(c.UserContext(), c.Params("id"), c.Locals("user_id").(string), req.Role)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrSelfRole):
+			return c.Status(400).JSON(response.Error(err.Error()))
+		case errors.Is(err, ErrNotFound):
+			return c.Status(404).JSON(response.NotFound())
+		default:
+			return c.Status(500).JSON(response.Error("internal server error"))
+		}
+	}
+	return c.JSON(response.OK(u))
+}

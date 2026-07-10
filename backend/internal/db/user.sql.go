@@ -12,8 +12,8 @@ import (
 )
 
 const createUser = `-- name: CreateUser :one
-INSERT INTO "user" (id, name, email, image, role)
-VALUES ($1, $2, $3, $4, $5) RETURNING id, name, email, email_verified, image, created_at, updated_at, role, banned, ban_reason, ban_expires
+INSERT INTO "user" (id, name, email, image)
+VALUES ($1, $2, $3, $4) RETURNING id, name, email, email_verified, image, created_at, updated_at, role, banned, ban_reason, ban_expires, two_factor_enabled
 `
 
 type CreateUserParams struct {
@@ -21,7 +21,6 @@ type CreateUserParams struct {
 	Name  string      `json:"name"`
 	Email string      `json:"email"`
 	Image pgtype.Text `json:"image"`
-	Role  pgtype.Text `json:"role"`
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
@@ -30,7 +29,6 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		arg.Name,
 		arg.Email,
 		arg.Image,
-		arg.Role,
 	)
 	var i User
 	err := row.Scan(
@@ -45,6 +43,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.Banned,
 		&i.BanReason,
 		&i.BanExpires,
+		&i.TwoFactorEnabled,
 	)
 	return i, err
 }
@@ -59,7 +58,7 @@ func (q *Queries) DeleteUser(ctx context.Context, id string) error {
 }
 
 const getUser = `-- name: GetUser :one
-SELECT id, name, email, email_verified, image, created_at, updated_at, role, banned, ban_reason, ban_expires FROM "user" WHERE id = $1
+SELECT id, name, email, email_verified, image, created_at, updated_at, role, banned, ban_reason, ban_expires, two_factor_enabled FROM "user" WHERE id = $1
 `
 
 func (q *Queries) GetUser(ctx context.Context, id string) (User, error) {
@@ -77,12 +76,13 @@ func (q *Queries) GetUser(ctx context.Context, id string) (User, error) {
 		&i.Banned,
 		&i.BanReason,
 		&i.BanExpires,
+		&i.TwoFactorEnabled,
 	)
 	return i, err
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, name, email, email_verified, image, created_at, updated_at, role, banned, ban_reason, ban_expires FROM "user" WHERE email = $1
+SELECT id, name, email, email_verified, image, created_at, updated_at, role, banned, ban_reason, ban_expires, two_factor_enabled FROM "user" WHERE email = $1
 `
 
 func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
@@ -100,12 +100,13 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.Banned,
 		&i.BanReason,
 		&i.BanExpires,
+		&i.TwoFactorEnabled,
 	)
 	return i, err
 }
 
 const listUsers = `-- name: ListUsers :many
-SELECT id, name, email, email_verified, image, created_at, updated_at, role, banned, ban_reason, ban_expires FROM "user" ORDER BY name
+SELECT id, name, email, email_verified, image, created_at, updated_at, role, banned, ban_reason, ban_expires, two_factor_enabled FROM "user" ORDER BY name
 `
 
 func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
@@ -129,6 +130,7 @@ func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
 			&i.Banned,
 			&i.BanReason,
 			&i.BanExpires,
+			&i.TwoFactorEnabled,
 		); err != nil {
 			return nil, err
 		}
@@ -141,8 +143,8 @@ func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
 }
 
 const updateUser = `-- name: UpdateUser :one
-UPDATE "user" SET name=$2, email=$3, image=$4, role=$5, updated_at=NOW()
-WHERE id=$1 RETURNING id, name, email, email_verified, image, created_at, updated_at, role, banned, ban_reason, ban_expires
+UPDATE "user" SET name=$2, email=$3, image=$4, updated_at=NOW()
+WHERE id=$1 RETURNING id, name, email, email_verified, image, created_at, updated_at, role, banned, ban_reason, ban_expires, two_factor_enabled
 `
 
 type UpdateUserParams struct {
@@ -150,7 +152,6 @@ type UpdateUserParams struct {
 	Name  string      `json:"name"`
 	Email string      `json:"email"`
 	Image pgtype.Text `json:"image"`
-	Role  pgtype.Text `json:"role"`
 }
 
 func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error) {
@@ -159,7 +160,6 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, e
 		arg.Name,
 		arg.Email,
 		arg.Image,
-		arg.Role,
 	)
 	var i User
 	err := row.Scan(
@@ -174,6 +174,37 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, e
 		&i.Banned,
 		&i.BanReason,
 		&i.BanExpires,
+		&i.TwoFactorEnabled,
+	)
+	return i, err
+}
+
+const updateUserRole = `-- name: UpdateUserRole :one
+UPDATE "user" SET role=$2, updated_at=NOW()
+WHERE id=$1 RETURNING id, name, email, email_verified, image, created_at, updated_at, role, banned, ban_reason, ban_expires, two_factor_enabled
+`
+
+type UpdateUserRoleParams struct {
+	ID   string `json:"id"`
+	Role string `json:"role"`
+}
+
+func (q *Queries) UpdateUserRole(ctx context.Context, arg UpdateUserRoleParams) (User, error) {
+	row := q.db.QueryRow(ctx, updateUserRole, arg.ID, arg.Role)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Email,
+		&i.EmailVerified,
+		&i.Image,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Role,
+		&i.Banned,
+		&i.BanReason,
+		&i.BanExpires,
+		&i.TwoFactorEnabled,
 	)
 	return i, err
 }

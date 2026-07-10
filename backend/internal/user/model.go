@@ -2,14 +2,24 @@ package user
 
 import "time"
 
+type Role string
+
+const (
+	RoleUser  Role = "user"
+	RoleAdmin Role = "admin"
+)
+
 type User struct {
-	ID            string    `json:"id"`
-	Name          string    `json:"name"`
-	Email         string    `json:"email"`
-	EmailVerified bool      `json:"email_verified"`
-	Image         *string   `json:"image,omitempty"`
-	Role          *string   `json:"role,omitempty"`
-	Banned        bool      `json:"banned"`
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
+	ID               string
+	Name             string
+	Email            string
+	EmailVerified    bool
+	Image            *string
+	Role             Role
+	Banned           bool
+	BanReason        *string
+	BanExpires       *time.Time
+	TwoFactorEnabled bool
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
 }

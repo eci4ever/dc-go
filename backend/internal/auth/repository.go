@@ -2,13 +2,13 @@ package auth
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"time"
 
-	"crypto/rand"
-	"encoding/base64"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -28,14 +28,13 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 	return &Repository{q: db.New(pool), pool: pool}
 }
 
-func (r *Repository) CreateUser(ctx context.Context, name, email string, image, role *string) (string, error) {
+func (r *Repository) CreateUser(ctx context.Context, name, email string, image *string) (string, error) {
 	id := uuid.New().String()
 	_, err := r.q.CreateUser(ctx, db.CreateUserParams{
 		ID:    id,
 		Name:  name,
 		Email: email,
 		Image: pgtext(image),
-		Role:  pgtext(role),
 	})
 	if err != nil {
 		var pgErr *pgconn.PgError
@@ -100,8 +99,32 @@ func (r *Repository) CreateSession(ctx context.Context, userID, ipAddress, userA
 		UserAgent:            pgtext(&userAgent),
 		UserID:               userID,
 		ActiveOrganizationID: pgtype.Text{Valid: false},
+		ActiveTeamID:         pgtype.Text{Valid: false},
 	})
 	return sess, token, err
+}
+
+func (r *Repository) GetSessionContextByToken(ctx context.Context, token string) (SessionContext, error) {
+	sess, err := r.q.GetSessionContextByToken(ctx, hashToken(token))
+	if err != nil {
+		return SessionContext{}, err
+	}
+	return mapSessionContext(sess), nil
+}
+
+func (r *Repository) SetActiveOrganization(ctx context.Context, token, userID, organizationID string) (SessionContext, error) {
+	_, err := r.q.UpdateSessionActiveOrganization(ctx, db.UpdateSessionActiveOrganizationParams{
+		Token:                hashToken(token),
+		ActiveOrganizationID: pgtype.Text{String: organizationID, Valid: true},
+		UserID:               userID,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return SessionContext{}, ErrForbidden
+		}
+		return SessionContext{}, err
+	}
+	return r.GetSessionContextByToken(ctx, token)
 }
 
 func (r *Repository) GetSessionByToken(ctx context.Context, token string) (db.Session, error) {
@@ -139,7 +162,7 @@ func (r *Repository) RotateSession(ctx context.Context, token, userID, ipAddress
 	if err != nil {
 		return db.Session{}, "", err
 	}
-	sess, err := q.CreateSession(ctx, db.CreateSessionParams{ID: uuid.New().String(), ExpiresAt: timestamptz(expiresAt), Token: hashToken(newToken), IpAddress: pgtext(&ipAddress), UserAgent: pgtext(&userAgent), UserID: userID, ActiveOrganizationID: pgtype.Text{Valid: false}})
+	sess, err := q.CreateSession(ctx, db.CreateSessionParams{ID: uuid.New().String(), ExpiresAt: timestamptz(expiresAt), Token: hashToken(newToken), IpAddress: pgtext(&ipAddress), UserAgent: pgtext(&userAgent), UserID: userID, ActiveOrganizationID: old.ActiveOrganizationID, ActiveTeamID: old.ActiveTeamID})
 	if err != nil {
 		return db.Session{}, "", err
 	}
@@ -165,16 +188,42 @@ func (r *Repository) ListSessionsByUserID(ctx context.Context, userID string) ([
 
 func mapUser(u db.User) user.User {
 	return user.User{
-		ID:            u.ID,
-		Name:          u.Name,
-		Email:         u.Email,
-		EmailVerified: u.EmailVerified,
-		Image:         pgtextPtr(&u.Image),
-		Role:          pgtextPtr(&u.Role),
-		Banned:        u.Banned.Bool,
-		CreatedAt:     u.CreatedAt.Time,
-		UpdatedAt:     u.UpdatedAt.Time,
+		ID:               u.ID,
+		Name:             u.Name,
+		Email:            u.Email,
+		EmailVerified:    u.EmailVerified,
+		Image:            pgtextPtr(&u.Image),
+		Role:             user.Role(u.Role),
+		Banned:           u.Banned,
+		BanReason:        pgtextPtr(&u.BanReason),
+		BanExpires:       pgtimestamptzPtr(&u.BanExpires),
+		TwoFactorEnabled: u.TwoFactorEnabled,
+		CreatedAt:        u.CreatedAt.Time,
+		UpdatedAt:        u.UpdatedAt.Time,
 	}
+}
+
+func mapSessionContext(s db.GetSessionContextByTokenRow) SessionContext {
+	return SessionContext{
+		ID:                     s.ID,
+		ExpiresAt:              s.ExpiresAt.Time,
+		CreatedAt:              s.CreatedAt.Time,
+		UpdatedAt:              s.UpdatedAt.Time,
+		IPAddress:              pgtextPtr(&s.IpAddress),
+		UserAgent:              pgtextPtr(&s.UserAgent),
+		UserID:                 s.UserID,
+		ImpersonatedBy:         pgtextPtr(&s.ImpersonatedBy),
+		ActiveOrganizationID:   pgtextPtr(&s.ActiveOrganizationID),
+		ActiveOrganizationRole: pgtextPtr(&s.ActiveOrganizationRole),
+		ActiveTeamID:           pgtextPtr(&s.ActiveTeamID),
+	}
+}
+
+func pgtimestamptzPtr(t *pgtype.Timestamptz) *time.Time {
+	if t == nil || !t.Valid {
+		return nil
+	}
+	return &t.Time
 }
 
 func pgtextPtr(t *pgtype.Text) *string {

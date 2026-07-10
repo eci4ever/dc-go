@@ -3,6 +3,7 @@ package user
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -54,13 +55,12 @@ func (r *Repository) List(ctx context.Context) ([]User, error) {
 	return users, nil
 }
 
-func (r *Repository) Create(ctx context.Context, id, name, email string, image, role *string) (User, error) {
+func (r *Repository) Create(ctx context.Context, id, name, email string, image *string) (User, error) {
 	u, err := r.q.CreateUser(ctx, db.CreateUserParams{
 		ID:    id,
 		Name:  name,
 		Email: email,
 		Image: pgtext(image),
-		Role:  pgtext(role),
 	})
 	if err != nil {
 		var pgErr *pgconn.PgError
@@ -72,14 +72,24 @@ func (r *Repository) Create(ctx context.Context, id, name, email string, image, 
 	return toDomain(u), nil
 }
 
-func (r *Repository) Update(ctx context.Context, id, name, email string, image, role *string) (User, error) {
+func (r *Repository) Update(ctx context.Context, id, name, email string, image *string) (User, error) {
 	u, err := r.q.UpdateUser(ctx, db.UpdateUserParams{
 		ID:    id,
 		Name:  name,
 		Email: email,
 		Image: pgtext(image),
-		Role:  pgtext(role),
 	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return User{}, ErrNotFound
+		}
+		return User{}, err
+	}
+	return toDomain(u), nil
+}
+
+func (r *Repository) UpdateRole(ctx context.Context, id string, role Role) (User, error) {
+	u, err := r.q.UpdateUserRole(ctx, db.UpdateUserRoleParams{ID: id, Role: string(role)})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return User{}, ErrNotFound
@@ -102,16 +112,26 @@ func (r *Repository) Delete(ctx context.Context, id string) error {
 
 func toDomain(u db.User) User {
 	return User{
-		ID:            u.ID,
-		Name:          u.Name,
-		Email:         u.Email,
-		EmailVerified: u.EmailVerified,
-		Image:         pgtextPtr(&u.Image),
-		Role:          pgtextPtr(&u.Role),
-		Banned:        u.Banned.Bool,
-		CreatedAt:     u.CreatedAt.Time,
-		UpdatedAt:     u.UpdatedAt.Time,
+		ID:               u.ID,
+		Name:             u.Name,
+		Email:            u.Email,
+		EmailVerified:    u.EmailVerified,
+		Image:            pgtextPtr(&u.Image),
+		Role:             Role(u.Role),
+		Banned:           u.Banned,
+		BanReason:        pgtextPtr(&u.BanReason),
+		BanExpires:       pgtimestamptzPtr(&u.BanExpires),
+		TwoFactorEnabled: u.TwoFactorEnabled,
+		CreatedAt:        u.CreatedAt.Time,
+		UpdatedAt:        u.UpdatedAt.Time,
 	}
+}
+
+func pgtimestamptzPtr(t *pgtype.Timestamptz) *time.Time {
+	if t == nil || !t.Valid {
+		return nil
+	}
+	return &t.Time
 }
 
 func pgtextPtr(t *pgtype.Text) *string {

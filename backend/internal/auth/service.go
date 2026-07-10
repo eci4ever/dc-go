@@ -25,13 +25,13 @@ func NewService(repo *Repository, jwt *JWTService, userRepo *user.Repository) *S
 	return &Service{repo: repo, jwt: jwt, userRepo: userRepo}
 }
 
-func (s *Service) Register(ctx context.Context, req RegisterRequest) (TokenResponse, error) {
+func (s *Service) Register(ctx context.Context, req RegisterRequest, ipAddress, userAgent string) (TokenResponse, error) {
 	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
 		return TokenResponse{}, err
 	}
 
-	userID, err := s.repo.CreateUser(ctx, req.Name, req.Email, nil, nil)
+	userID, err := s.repo.CreateUser(ctx, req.Name, req.Email, nil)
 	if err != nil {
 		return TokenResponse{}, err
 	}
@@ -41,7 +41,7 @@ func (s *Service) Register(ctx context.Context, req RegisterRequest) (TokenRespo
 		return TokenResponse{}, err
 	}
 
-	return s.createSession(ctx, userID, "", "")
+	return s.createSession(ctx, userID, ipAddress, userAgent)
 }
 
 func (s *Service) Login(ctx context.Context, req LoginRequest, ipAddress, userAgent string) (TokenResponse, error) {
@@ -95,7 +95,7 @@ func (s *Service) rotateSession(ctx context.Context, token, userID, ipAddress, u
 	if err != nil {
 		return TokenResponse{}, err
 	}
-	sess, refreshToken, err := s.repo.RotateSession(ctx, token, userID, ipAddress, userAgent, time.Now().Add(refreshTokenTTL))
+	_, refreshToken, err := s.repo.RotateSession(ctx, token, userID, ipAddress, userAgent, time.Now().Add(refreshTokenTTL))
 	if err != nil {
 		return TokenResponse{}, ErrInvalidToken
 	}
@@ -103,43 +103,45 @@ func (s *Service) rotateSession(ctx context.Context, token, userID, ipAddress, u
 	if err != nil {
 		return TokenResponse{}, err
 	}
-	return TokenResponse{AccessToken: accessToken, RefreshToken: refreshToken, User: toAuthUser(u), Session: AuthSession{ID: sess.ID, ExpiresAt: sess.ExpiresAt.Time.Format(time.RFC3339), CreatedAt: sess.CreatedAt.Time.Format(time.RFC3339), UserID: sess.UserID}}, nil
+	sessionContext, err := s.repo.GetSessionContextByToken(ctx, refreshToken)
+	if err != nil {
+		return TokenResponse{}, err
+	}
+	return TokenResponse{AccessToken: accessToken, RefreshToken: refreshToken, User: toAuthUser(u), Session: toAuthSession(sessionContext)}, nil
 }
 
-func (s *Service) GetSession(ctx context.Context, userID string) (SessionResponse, error) {
+func (s *Service) GetSession(ctx context.Context, userID, refreshToken string) (SessionResponse, error) {
+	if refreshToken == "" {
+		return SessionResponse{}, ErrInvalidToken
+	}
 	u, err := s.repo.GetUserByID(ctx, userID)
 	if err != nil {
 		return SessionResponse{}, err
 	}
 
-	sessions, err := s.repo.ListSessionsByUserID(ctx, userID)
+	sess, err := s.repo.GetSessionContextByToken(ctx, refreshToken)
+	if err != nil {
+		return SessionResponse{}, ErrInvalidToken
+	}
+	if sess.UserID != userID || sess.ExpiresAt.Before(time.Now()) {
+		return SessionResponse{}, ErrInvalidToken
+	}
+	return SessionResponse{User: toAuthUser(u), Session: toAuthSession(sess)}, nil
+}
+
+func (s *Service) SetActiveOrganization(ctx context.Context, userID, refreshToken, organizationID string) (SessionResponse, error) {
+	if refreshToken == "" {
+		return SessionResponse{}, ErrInvalidToken
+	}
+	sess, err := s.repo.SetActiveOrganization(ctx, refreshToken, userID, organizationID)
 	if err != nil {
 		return SessionResponse{}, err
 	}
-
-	var active *AuthSession
-	for i := range sessions {
-		if sessions[i].ExpiresAt.Time.After(time.Now()) {
-			active = &AuthSession{
-				ID:        sessions[i].ID,
-				ExpiresAt: sessions[i].ExpiresAt.Time.Format(time.RFC3339),
-				CreatedAt: sessions[i].CreatedAt.Time.Format(time.RFC3339),
-				UserID:    sessions[i].UserID,
-			}
-			break
-		}
+	u, err := s.repo.GetUserByID(ctx, userID)
+	if err != nil {
+		return SessionResponse{}, err
 	}
-
-	au := toAuthUser(u)
-
-	if active == nil {
-		return SessionResponse{User: au}, nil
-	}
-
-	return SessionResponse{
-		User:    au,
-		Session: *active,
-	}, nil
+	return SessionResponse{User: toAuthUser(u), Session: toAuthSession(sess)}, nil
 }
 
 func (s *Service) Logout(ctx context.Context, refreshToken string) error {
@@ -155,7 +157,7 @@ func (s *Service) createSession(ctx context.Context, userID, ipAddress, userAgen
 		return TokenResponse{}, err
 	}
 
-	sess, refreshToken, err := s.repo.CreateSession(ctx, userID, ipAddress, userAgent, time.Now().Add(refreshTokenTTL))
+	_, refreshToken, err := s.repo.CreateSession(ctx, userID, ipAddress, userAgent, time.Now().Add(refreshTokenTTL))
 	if err != nil {
 		return TokenResponse{}, err
 	}
@@ -165,31 +167,58 @@ func (s *Service) createSession(ctx context.Context, userID, ipAddress, userAgen
 		return TokenResponse{}, err
 	}
 
+	sessionContext, err := s.repo.GetSessionContextByToken(ctx, refreshToken)
+	if err != nil {
+		return TokenResponse{}, err
+	}
 	return TokenResponse{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
 		User:         toAuthUser(u),
-		Session: AuthSession{
-			ID:        sess.ID,
-			ExpiresAt: sess.ExpiresAt.Time.Format(time.RFC3339),
-			CreatedAt: sess.CreatedAt.Time.Format(time.RFC3339),
-			UserID:    sess.UserID,
-		},
+		Session:      toAuthSession(sessionContext),
 	}, nil
 }
 
 func (s *Service) AccessToken(userID string) (string, error) { return s.jwt.Sign(userID) }
 
 func toAuthUser(u user.User) AuthUser {
-	return AuthUser{
-		ID:            u.ID,
-		Name:          u.Name,
-		Email:         u.Email,
-		EmailVerified: u.EmailVerified,
-		Image:         u.Image,
-		Role:          u.Role,
-		Banned:        u.Banned,
-		CreatedAt:     u.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:     u.UpdatedAt.Format(time.RFC3339),
+	var banExpires *string
+	if u.BanExpires != nil {
+		value := formatTime(*u.BanExpires)
+		banExpires = &value
 	}
+	return AuthUser{
+		ID:               u.ID,
+		Name:             u.Name,
+		Email:            u.Email,
+		EmailVerified:    u.EmailVerified,
+		Image:            u.Image,
+		Role:             u.Role,
+		Banned:           u.Banned,
+		BanReason:        u.BanReason,
+		BanExpires:       banExpires,
+		TwoFactorEnabled: u.TwoFactorEnabled,
+		CreatedAt:        formatTime(u.CreatedAt),
+		UpdatedAt:        formatTime(u.UpdatedAt),
+	}
+}
+
+func toAuthSession(s SessionContext) AuthSession {
+	return AuthSession{
+		ID:                     s.ID,
+		ExpiresAt:              formatTime(s.ExpiresAt),
+		CreatedAt:              formatTime(s.CreatedAt),
+		UpdatedAt:              formatTime(s.UpdatedAt),
+		IPAddress:              s.IPAddress,
+		UserAgent:              s.UserAgent,
+		UserID:                 s.UserID,
+		ImpersonatedBy:         s.ImpersonatedBy,
+		ActiveOrganizationID:   s.ActiveOrganizationID,
+		ActiveOrganizationRole: s.ActiveOrganizationRole,
+		ActiveTeamID:           s.ActiveTeamID,
+	}
+}
+
+func formatTime(value time.Time) string {
+	return value.UTC().Format(time.RFC3339Nano)
 }

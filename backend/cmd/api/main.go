@@ -84,9 +84,10 @@ func main() {
 	// Auth middleware
 	authMw := auth.AuthMiddleware(jwtSvc)
 	csrfMw := auth.CSRFMiddleware()
+	adminMw := auth.RequireUserRole(userRepo, user.RoleAdmin)
 
 	// Register routes
-	user.RegisterRoutes(v1, userHdl, authMw, csrfMw)
+	user.RegisterRoutes(v1, userHdl, authMw, csrfMw, adminMw)
 	auth.RegisterRoutes(v1, authHdl, authMw, csrfMw)
 	organization.RegisterRoutes(v1, orgHdl, authMw, csrfMw)
 	team.RegisterRoutes(v1, teamHdl, authMw, csrfMw)

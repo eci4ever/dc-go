@@ -5,26 +5,46 @@ interface ApiResponse<T> {
   data?: T;
   message?: string;
 }
+type UserRole = "user" | "admin";
+type OrganizationRole = "owner" | "admin" | "member";
+
 interface User {
   id: string;
   name: string;
   email: string;
-  email_verified: boolean;
+  emailVerified: boolean;
   image: string | null;
-  role: string | null;
+  createdAt: string;
+  updatedAt: string;
+  role: UserRole;
   banned: boolean;
-  created_at: string;
-  updated_at: string;
+  banReason: string | null;
+  banExpires: string | null;
+  twoFactorEnabled: boolean;
 }
 interface Session {
   id: string;
-  expires_at: string;
-  created_at: string;
-  user_id: string;
+  expiresAt: string;
+  createdAt: string;
+  updatedAt: string;
+  ipAddress: string | null;
+  userAgent: string | null;
+  userId: string;
+  impersonatedBy: string | null;
+  activeOrganizationId: string | null;
+  activeOrganizationRole: OrganizationRole | null;
+  activeTeamId: string | null;
 }
 interface SessionData {
   user: User;
-  session: Session | null;
+  session: Session;
+}
+interface Organization {
+  id: string;
+  name: string;
+  slug: string;
+  logo?: string | null;
+  created_at: string;
 }
 
 function csrfToken() {
@@ -93,4 +113,16 @@ export async function logout() {
   return request("/auth/logout", { method: "POST" });
 }
 export const getSession = () => request<SessionData>("/auth/session");
-export type { User, Session, SessionData, ApiResponse };
+export const listOrganizations = () => request<Organization[]>("/organizations");
+export const setActiveOrganization = (organizationId: string) =>
+  request<SessionData>("/auth/session/active-organization", {
+    method: "PUT",
+    body: JSON.stringify({ organization_id: organizationId }),
+  });
+export const listUsers = () => request<User[]>("/users");
+export const updateUserRole = (id: string, role: UserRole) =>
+  request<User>(`/users/${id}/role`, {
+    method: "PUT",
+    body: JSON.stringify({ role }),
+  });
+export type { UserRole, OrganizationRole, User, Session, SessionData, Organization, ApiResponse };

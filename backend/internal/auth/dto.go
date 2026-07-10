@@ -11,6 +11,10 @@ type LoginRequest struct {
 	Password string `json:"password" validate:"required"`
 }
 
+type SetActiveOrganizationRequest struct {
+	OrganizationID string `json:"organization_id" validate:"required"`
+}
+
 type TokenResponse struct {
 	AccessToken  string      `json:"-"`
 	RefreshToken string      `json:"-"`

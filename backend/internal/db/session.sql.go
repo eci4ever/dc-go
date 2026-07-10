@@ -11,9 +11,25 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const clearActiveOrganizationForMember = `-- name: ClearActiveOrganizationForMember :exec
+UPDATE "session"
+SET active_organization_id = NULL, active_team_id = NULL, updated_at = NOW()
+WHERE active_organization_id = $1 AND user_id = $2
+`
+
+type ClearActiveOrganizationForMemberParams struct {
+	ActiveOrganizationID pgtype.Text `json:"active_organization_id"`
+	UserID               string      `json:"user_id"`
+}
+
+func (q *Queries) ClearActiveOrganizationForMember(ctx context.Context, arg ClearActiveOrganizationForMemberParams) error {
+	_, err := q.db.Exec(ctx, clearActiveOrganizationForMember, arg.ActiveOrganizationID, arg.UserID)
+	return err
+}
+
 const createSession = `-- name: CreateSession :one
-INSERT INTO "session" (id, expires_at, token, ip_address, user_agent, user_id, active_organization_id)
-VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, expires_at, token, created_at, updated_at, ip_address, user_agent, user_id, impersonated_by, active_organization_id, active_team_id
+INSERT INTO "session" (id, expires_at, token, ip_address, user_agent, user_id, active_organization_id, active_team_id)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, expires_at, token, created_at, updated_at, ip_address, user_agent, user_id, impersonated_by, active_organization_id, active_team_id
 `
 
 type CreateSessionParams struct {
@@ -24,6 +40,7 @@ type CreateSessionParams struct {
 	UserAgent            pgtype.Text        `json:"user_agent"`
 	UserID               string             `json:"user_id"`
 	ActiveOrganizationID pgtype.Text        `json:"active_organization_id"`
+	ActiveTeamID         pgtype.Text        `json:"active_team_id"`
 }
 
 func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error) {
@@ -35,6 +52,7 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (S
 		arg.UserAgent,
 		arg.UserID,
 		arg.ActiveOrganizationID,
+		arg.ActiveTeamID,
 	)
 	var i Session
 	err := row.Scan(
@@ -103,6 +121,50 @@ func (q *Queries) GetSessionByToken(ctx context.Context, token string) (Session,
 	return i, err
 }
 
+const getSessionContextByToken = `-- name: GetSessionContextByToken :one
+SELECT s.id, s.expires_at, s.token, s.created_at, s.updated_at, s.ip_address, s.user_agent, s.user_id, s.impersonated_by, s.active_organization_id, s.active_team_id, m.role AS active_organization_role
+FROM "session" s
+LEFT JOIN "member" m
+  ON m.organization_id = s.active_organization_id
+ AND m.user_id = s.user_id
+WHERE s.token = $1
+`
+
+type GetSessionContextByTokenRow struct {
+	ID                     string             `json:"id"`
+	ExpiresAt              pgtype.Timestamptz `json:"expires_at"`
+	Token                  string             `json:"token"`
+	CreatedAt              pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
+	IpAddress              pgtype.Text        `json:"ip_address"`
+	UserAgent              pgtype.Text        `json:"user_agent"`
+	UserID                 string             `json:"user_id"`
+	ImpersonatedBy         pgtype.Text        `json:"impersonated_by"`
+	ActiveOrganizationID   pgtype.Text        `json:"active_organization_id"`
+	ActiveTeamID           pgtype.Text        `json:"active_team_id"`
+	ActiveOrganizationRole pgtype.Text        `json:"active_organization_role"`
+}
+
+func (q *Queries) GetSessionContextByToken(ctx context.Context, token string) (GetSessionContextByTokenRow, error) {
+	row := q.db.QueryRow(ctx, getSessionContextByToken, token)
+	var i GetSessionContextByTokenRow
+	err := row.Scan(
+		&i.ID,
+		&i.ExpiresAt,
+		&i.Token,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.IpAddress,
+		&i.UserAgent,
+		&i.UserID,
+		&i.ImpersonatedBy,
+		&i.ActiveOrganizationID,
+		&i.ActiveTeamID,
+		&i.ActiveOrganizationRole,
+	)
+	return i, err
+}
+
 const listSessionsByUserID = `-- name: ListSessionsByUserID :many
 SELECT id, expires_at, token, created_at, updated_at, ip_address, user_agent, user_id, impersonated_by, active_organization_id, active_team_id FROM "session" WHERE user_id = $1 ORDER BY created_at DESC
 `
@@ -137,4 +199,42 @@ func (q *Queries) ListSessionsByUserID(ctx context.Context, userID string) ([]Se
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateSessionActiveOrganization = `-- name: UpdateSessionActiveOrganization :one
+UPDATE "session" s
+SET active_organization_id = $2, active_team_id = NULL, updated_at = NOW()
+WHERE s.token = $1
+  AND s.user_id = $3
+  AND s.expires_at > NOW()
+  AND EXISTS (
+      SELECT 1 FROM "member" m
+      WHERE m.organization_id = $2 AND m.user_id = $3
+  )
+RETURNING id, expires_at, token, created_at, updated_at, ip_address, user_agent, user_id, impersonated_by, active_organization_id, active_team_id
+`
+
+type UpdateSessionActiveOrganizationParams struct {
+	Token                string      `json:"token"`
+	ActiveOrganizationID pgtype.Text `json:"active_organization_id"`
+	UserID               string      `json:"user_id"`
+}
+
+func (q *Queries) UpdateSessionActiveOrganization(ctx context.Context, arg UpdateSessionActiveOrganizationParams) (Session, error) {
+	row := q.db.QueryRow(ctx, updateSessionActiveOrganization, arg.Token, arg.ActiveOrganizationID, arg.UserID)
+	var i Session
+	err := row.Scan(
+		&i.ID,
+		&i.ExpiresAt,
+		&i.Token,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.IpAddress,
+		&i.UserAgent,
+		&i.UserID,
+		&i.ImpersonatedBy,
+		&i.ActiveOrganizationID,
+		&i.ActiveTeamID,
+	)
+	return i, err
 }

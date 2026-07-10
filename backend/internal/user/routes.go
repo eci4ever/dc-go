@@ -2,17 +2,12 @@ package user
 
 import "github.com/gofiber/fiber/v2"
 
-func RegisterRoutes(router fiber.Router, h *Handler, mw ...fiber.Handler) {
+func RegisterRoutes(router fiber.Router, h *Handler, authMw, csrfMw, adminMw fiber.Handler) {
 	g := router.Group("/users")
-	if len(mw) > 0 && mw[0] != nil {
-		g.Use(mw[0])
-	}
+	g.Use(authMw)
 	g.Get("/me", h.GetByID)
-	if len(mw) > 1 {
-		g.Put("/me", mw[1], h.Update)
-		g.Delete("/me", mw[1], h.Delete)
-	} else {
-		g.Put("/me", h.Update)
-		g.Delete("/me", h.Delete)
-	}
+	g.Put("/me", csrfMw, h.Update)
+	g.Delete("/me", csrfMw, h.Delete)
+	g.Get("", adminMw, h.List)
+	g.Put("/:id/role", csrfMw, adminMw, h.UpdateRole)
 }

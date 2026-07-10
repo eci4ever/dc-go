@@ -27,7 +27,18 @@ func (s *Service) List(ctx context.Context) ([]UserResponse, error) {
 }
 
 func (s *Service) Update(ctx context.Context, id string, req UpdateUserRequest) (UserResponse, error) {
-	u, err := s.repo.Update(ctx, id, req.Name, req.Email, req.Image, nil)
+	u, err := s.repo.Update(ctx, id, req.Name, req.Email, req.Image)
+	if err != nil {
+		return UserResponse{}, err
+	}
+	return toResponse(u), nil
+}
+
+func (s *Service) UpdateRole(ctx context.Context, id, actorID string, role Role) (UserResponse, error) {
+	if id == actorID {
+		return UserResponse{}, ErrSelfRole
+	}
+	u, err := s.repo.UpdateRole(ctx, id, role)
 	if err != nil {
 		return UserResponse{}, err
 	}
