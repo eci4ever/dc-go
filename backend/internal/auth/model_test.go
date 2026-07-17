@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"dc-express/internal/user"
+	"github.com/eci4ever/dc-go/internal/user"
 )
 
 func TestSessionResponseJSONContract(t *testing.T) {

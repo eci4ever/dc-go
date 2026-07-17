@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"dc-express/internal/user"
+	"github.com/eci4ever/dc-go/internal/user"
 
 	"github.com/gofiber/fiber/v2"
 )

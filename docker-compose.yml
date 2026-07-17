@@ -23,7 +23,7 @@ services:
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=dc_express
+      - POSTGRES_DB=dc_go
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:

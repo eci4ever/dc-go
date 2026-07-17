@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useState } from "react";
 import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
 import { SignupForm } from "@/components/signup-form";
@@ -46,7 +45,7 @@ function SignupPage() {
           <div className="flex size-6 items-center justify-center rounded-md bg-primary text-primary-foreground">
             <GalleryVerticalEnd className="size-4" />
           </div>
-          DC Express
+          DC-GO
         </Link>
         <SignupForm onSubmit={handleSubmit} error={error} submitting={submitting} />
       </div>

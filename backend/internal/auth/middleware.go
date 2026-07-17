@@ -4,8 +4,8 @@ import (
 	"context"
 	"crypto/subtle"
 
-	"dc-express/internal/user"
-	"dc-express/pkg/response"
+	"github.com/eci4ever/dc-go/internal/user"
+	"github.com/eci4ever/dc-go/pkg/response"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -21,7 +21,7 @@ func AuthMiddleware(jwt *JWTService) fiber.Handler {
 			return c.Status(401).JSON(response.Error("invalid or expired token"))
 		}
 
-		c.Locals("user_id", claims.UserID)
+		c.Locals("user_id", claims.Subject)
 		return c.Next()
 	}
 }

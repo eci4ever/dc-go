@@ -94,10 +94,16 @@ go install github.com/air-verse/air@latest
 
 ## Environment configuration
 
-Create a `.env` file in the repository root:
+Create a local environment file from the committed template:
+
+```bash
+cp .env.example .env
+```
+
+The template contains:
 
 ```dotenv
-DATABASE_URL=postgres://postgres:postgres@db:5432/dc_express?sslmode=disable
+DATABASE_URL=postgres://postgres:postgres@db:5432/dc_go?sslmode=disable
 JWT_SECRET=ReplaceThisWithAStrong32CharacterSecret!123
 ```
 
@@ -109,8 +115,8 @@ The backend also accepts these optional variables when they are provided directl
 | --- | --- | --- |
 | `PORT` | `3000` | Backend HTTP port |
 | `ENVIRONMENT` | `development` | Set to `production` to enable secure cookies |
-| `JWT_ISSUER` | `dc-express` | Expected JWT issuer |
-| `JWT_AUDIENCE` | `dc-express` | Expected JWT audience |
+| `JWT_ISSUER` | `dc-go` | Expected JWT issuer |
+| `JWT_AUDIENCE` | `dc-go` | Expected JWT audience |
 | `STATIC_DIR` | `./public` | Directory served by the Go application |
 
 The `.env` file is ignored by Git. Do not commit real secrets.
@@ -249,6 +255,18 @@ Errors use `success: false` and a `message` field.
 
 Migrations in `backend/migrations` run automatically when the API starts. Applied filenames are recorded in the `schema_migrations` table, and each new migration is applied in a transaction.
 
+### Upgrading an existing `dc-express` database
+
+Fresh installations use the `dc_go` database. If an existing Docker volume was created before the project rename, stop the application and rename its database once before starting the updated code:
+
+```bash
+docker compose stop app
+docker compose exec -T db psql -U postgres -d postgres \
+  -c 'ALTER DATABASE dc_express RENAME TO dc_go;'
+```
+
+Update `DATABASE_URL` to use `/dc_go` after the rename. The operation preserves the existing schema and data.
+
 Add schema changes as a new, sequentially named SQL file instead of modifying a migration that has already been applied. Regenerate database code after changing the schema or SQL queries:
 
 ```bash
@@ -270,6 +288,7 @@ Run frontend checks:
 
 ```bash
 cd frontend
+npm test
 npm run typecheck
 npm run lint
 npm run format:check

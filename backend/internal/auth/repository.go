@@ -15,8 +15,8 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	db "dc-express/internal/db"
-	"dc-express/internal/user"
+	db "github.com/eci4ever/dc-go/internal/db"
+	"github.com/eci4ever/dc-go/internal/user"
 )
 
 type Repository struct {
@@ -28,22 +28,45 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 	return &Repository{q: db.New(pool), pool: pool}
 }
 
-func (r *Repository) CreateUser(ctx context.Context, name, email string, image *string) (string, error) {
-	id := uuid.New().String()
-	_, err := r.q.CreateUser(ctx, db.CreateUserParams{
-		ID:    id,
+// CreateCredentialUser creates the user and credential account in one transaction.
+// A failed account insert cannot leave an unusable user record behind.
+func (r *Repository) CreateCredentialUser(ctx context.Context, name, email, passwordHash string) (string, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return "", err
+	}
+	defer tx.Rollback(ctx)
+
+	q := db.New(tx)
+	userID := uuid.New().String()
+	if _, err = q.CreateUser(ctx, db.CreateUserParams{
+		ID:    userID,
 		Name:  name,
 		Email: email,
-		Image: pgtext(image),
-	})
-	if err != nil {
+		Image: pgtype.Text{Valid: false},
+	}); err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 			return "", ErrEmailExists
 		}
 		return "", err
 	}
-	return id, nil
+
+	if _, err = q.CreateAccount(ctx, db.CreateAccountParams{
+		ID:         uuid.New().String(),
+		ProviderID: "credential",
+		AccountID:  email,
+		UserID:     userID,
+		Password:   pgtext(&passwordHash),
+		Scope:      pgtype.Text{Valid: false},
+	}); err != nil {
+		return "", err
+	}
+
+	if err = tx.Commit(ctx); err != nil {
+		return "", err
+	}
+	return userID, nil
 }
 
 func (r *Repository) GetUserByEmail(ctx context.Context, email string) (user.User, error) {
@@ -63,19 +86,6 @@ func getUser(ctx context.Context, fn func(context.Context, string) (db.User, err
 		return user.User{}, err
 	}
 	return mapUser(u), nil
-}
-
-func (r *Repository) CreateAccount(ctx context.Context, userID, providerID, accountID string, password *string) error {
-	id := uuid.New().String()
-	_, err := r.q.CreateAccount(ctx, db.CreateAccountParams{
-		ID:         id,
-		ProviderID: providerID,
-		AccountID:  accountID,
-		UserID:     userID,
-		Password:   pgtext(password),
-		Scope:      pgtype.Text{Valid: false},
-	})
-	return err
 }
 
 func (r *Repository) GetAccountByProvider(ctx context.Context, providerID, accountID string) (db.Account, error) {

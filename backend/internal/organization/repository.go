@@ -12,7 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	db "dc-express/internal/db"
+	db "github.com/eci4ever/dc-go/internal/db"
 )
 
 type Repository struct {
@@ -243,7 +243,14 @@ func (r *Repository) ListInvitationsByOrgID(ctx context.Context, orgID string) (
 }
 
 func (r *Repository) AcceptInvitation(ctx context.Context, id, userID string) error {
-	inv, err := r.q.GetInvitation(ctx, id)
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	q := db.New(tx)
+	inv, err := q.GetInvitationForUpdate(ctx, id)
 	if err != nil {
 		return ErrInvitationNotFound
 	}
@@ -251,21 +258,26 @@ func (r *Repository) AcceptInvitation(ctx context.Context, id, userID string) er
 	if inv.Status != "pending" {
 		return errors.New("invitation is not pending")
 	}
-	u, err := r.q.GetUser(ctx, userID)
+	u, err := q.GetUser(ctx, userID)
 	if err != nil || !strings.EqualFold(u.Email, inv.Email) {
 		return ErrInvitationNotFound
 	}
 
 	if inv.ExpiresAt.Time.Before(time.Now()) {
-		r.q.UpdateInvitationStatus(ctx, db.UpdateInvitationStatusParams{
+		if _, err = q.UpdateInvitationStatus(ctx, db.UpdateInvitationStatusParams{
 			ID:     id,
 			Status: "expired",
-		})
+		}); err != nil {
+			return err
+		}
+		if err = tx.Commit(ctx); err != nil {
+			return err
+		}
 		return ErrInvitationExpired
 	}
 
 	memberID := uuid.New().String()
-	_, err = r.q.CreateMember(ctx, db.CreateMemberParams{
+	_, err = q.CreateMember(ctx, db.CreateMemberParams{
 		ID:             memberID,
 		OrganizationID: inv.OrganizationID,
 		UserID:         userID,
@@ -275,11 +287,14 @@ func (r *Repository) AcceptInvitation(ctx context.Context, id, userID string) er
 		return err
 	}
 
-	_, err = r.q.UpdateInvitationStatus(ctx, db.UpdateInvitationStatusParams{
+	_, err = q.UpdateInvitationStatus(ctx, db.UpdateInvitationStatusParams{
 		ID:     id,
 		Status: "accepted",
 	})
-	return err
+	if err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 func (r *Repository) DeclineInvitation(ctx context.Context, id, userID string) error {

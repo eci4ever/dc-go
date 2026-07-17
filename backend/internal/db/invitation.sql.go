@@ -79,6 +79,27 @@ func (q *Queries) GetInvitation(ctx context.Context, id string) (Invitation, err
 	return i, err
 }
 
+const getInvitationForUpdate = `-- name: GetInvitationForUpdate :one
+SELECT id, organization_id, email, role, team_id, status, expires_at, created_at, inviter_id FROM "invitation" WHERE id = $1 FOR UPDATE
+`
+
+func (q *Queries) GetInvitationForUpdate(ctx context.Context, id string) (Invitation, error) {
+	row := q.db.QueryRow(ctx, getInvitationForUpdate, id)
+	var i Invitation
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.Email,
+		&i.Role,
+		&i.TeamID,
+		&i.Status,
+		&i.ExpiresAt,
+		&i.CreatedAt,
+		&i.InviterID,
+	)
+	return i, err
+}
+
 const listInvitationsByEmail = `-- name: ListInvitationsByEmail :many
 SELECT id, organization_id, email, role, team_id, status, expires_at, created_at, inviter_id FROM "invitation" WHERE email = $1 ORDER BY created_at DESC
 `

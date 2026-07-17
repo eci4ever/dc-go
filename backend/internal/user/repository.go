@@ -10,7 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	db "dc-express/internal/db"
+	db "github.com/eci4ever/dc-go/internal/db"
 )
 
 type Repository struct {
