@@ -2,7 +2,7 @@ package organization
 
 import "github.com/gofiber/fiber/v2"
 
-func RegisterRoutes(router fiber.Router, h *Handler, mw ...fiber.Handler) {
+func RegisterRoutes(router fiber.Router, h *Handler, invitationLimit fiber.Handler, mw ...fiber.Handler) {
 	if len(mw) > 0 && mw[0] != nil {
 		router.Post("/organizations", mw[0], mw[1], h.Create)
 		router.Get("/organizations", mw[0], h.List)
@@ -13,7 +13,7 @@ func RegisterRoutes(router fiber.Router, h *Handler, mw ...fiber.Handler) {
 		router.Get("/organizations/:id/members/me", mw[0], h.GetMember)
 		router.Put("/organizations/:id/members/:userID/role", mw[0], mw[1], h.UpdateMemberRole)
 		router.Delete("/organizations/:id/members/:userID", mw[0], mw[1], h.RemoveMember)
-		router.Post("/organizations/:id/invitations", mw[0], mw[1], h.Invite)
+		router.Post("/organizations/:id/invitations", mw[0], mw[1], invitationLimit, h.Invite)
 		router.Get("/organizations/:id/invitations", mw[0], h.ListInvitations)
 		router.Post("/invitations/:id/accept", mw[0], mw[1], h.AcceptInvitation)
 		router.Post("/invitations/:id/decline", mw[0], mw[1], h.DeclineInvitation)

@@ -6,6 +6,7 @@ const validSecret = "A-Strong-Secret-With-Upper-Lower-123!"
 
 func setValidS3Config(t *testing.T) {
 	t.Helper()
+	t.Setenv("REDIS_URL", "redis://localhost:6379/0")
 	t.Setenv("S3_ENDPOINT", "http://storage:8333")
 	t.Setenv("S3_ACCESS_KEY", "test-access-key")
 	t.Setenv("S3_SECRET_KEY", "test-secret-key")

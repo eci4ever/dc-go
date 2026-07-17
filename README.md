@@ -119,7 +119,7 @@ REDISINSIGHT_ENCRYPTION_KEY=ReplaceThisWithA32CharacterEncryptionKey!123
 
 `JWT_SECRET` must be at least 32 characters and contain at least three of these character classes: uppercase letters, lowercase letters, digits, and symbols.
 
-`dev.sh` loads the database, Redis, and S3 variables from the root `.env` file. It rewrites Docker service hostnames to `127.0.0.1` because Air runs the Go API directly on the host. Avatar storage uses the S3 configuration; Redis is running and ready for a future application client.
+`dev.sh` loads the database, Redis, and S3 variables from the root `.env` file. It rewrites Docker service hostnames to `127.0.0.1` because Air runs the Go API directly on the host. Avatar storage uses the S3 configuration; Redis provides distributed rate limiting and is included in the API health check.
 
 | Variable | Default | Description |
 | --- | --- | --- |
@@ -196,6 +196,18 @@ Successful registration or login sets three cookies:
 When an API request receives `401 Unauthorized`, the frontend attempts one refresh. A successful refresh rotates the database session token and retries the original request.
 
 Sessions can also store the user's active organization and team. Organization access is always checked against current membership rather than trusting frontend state.
+
+Redis-backed fixed-window limits protect sensitive endpoints across all API instances:
+
+| Action | Limit | Key |
+| --- | --- | --- |
+| Register | 3 per hour | Client IP |
+| Login | 5 per 15 minutes | Client IP |
+| Refresh session | 30 per minute | Client IP |
+| Change password | 5 per hour | User |
+| Create invitation | 20 per hour | Organization |
+
+Limited responses return `429 Too Many Requests` with `RateLimit-*` and `Retry-After` headers. Sensitive endpoints return `503 Service Unavailable` if Redis cannot enforce a limit. Identifiers are hashed before being stored in Redis.
 
 ## Roles
 
