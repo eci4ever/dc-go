@@ -11,6 +11,7 @@ import (
 	"github.com/eci4ever/dc-go/configs"
 	"github.com/eci4ever/dc-go/internal/auth"
 	"github.com/eci4ever/dc-go/internal/organization"
+	"github.com/eci4ever/dc-go/internal/storage"
 	"github.com/eci4ever/dc-go/internal/team"
 	"github.com/eci4ever/dc-go/internal/user"
 	"github.com/eci4ever/dc-go/pkg/database"
@@ -38,6 +39,19 @@ func main() {
 	defer pool.Close()
 
 	database.RunMigrations(ctx, pool)
+	avatarStore, err := storage.NewS3Store(ctx, storage.Config{
+		Endpoint:       cfg.S3Endpoint,
+		AccessKey:      cfg.S3AccessKey,
+		SecretKey:      cfg.S3SecretKey,
+		Bucket:         cfg.S3Bucket,
+		Region:         cfg.S3Region,
+		UseSSL:         cfg.S3UseSSL,
+		ForcePathStyle: cfg.S3PathStyle,
+	})
+	if err != nil {
+		slog.Error("failed to configure avatar storage", "error", err)
+		os.Exit(1)
+	}
 
 	// Repositories
 	userRepo := user.NewRepository(pool)
@@ -49,7 +63,7 @@ func main() {
 	jwtSvc := auth.NewJWTService(cfg.JWTSecret, cfg.JWTIssuer, cfg.JWTAudience)
 
 	// Services
-	userSvc := user.NewService(userRepo)
+	userSvc := user.NewService(userRepo, avatarStore)
 	authSvc := auth.NewService(authRepo, jwtSvc, userRepo)
 	orgSvc := organization.NewService(orgRepo)
 	teamSvc := team.NewService(teamRepo)

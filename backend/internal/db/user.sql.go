@@ -11,9 +11,38 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const clearUserAvatar = `-- name: ClearUserAvatar :one
+UPDATE "user"
+SET image=NULL, avatar_key=NULL, avatar_content_type=NULL, avatar_updated_at=NULL, updated_at=NOW()
+WHERE id=$1 RETURNING id, name, email, email_verified, image, created_at, updated_at, role, banned, ban_reason, ban_expires, two_factor_enabled, avatar_key, avatar_content_type, avatar_updated_at
+`
+
+func (q *Queries) ClearUserAvatar(ctx context.Context, id string) (User, error) {
+	row := q.db.QueryRow(ctx, clearUserAvatar, id)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Email,
+		&i.EmailVerified,
+		&i.Image,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Role,
+		&i.Banned,
+		&i.BanReason,
+		&i.BanExpires,
+		&i.TwoFactorEnabled,
+		&i.AvatarKey,
+		&i.AvatarContentType,
+		&i.AvatarUpdatedAt,
+	)
+	return i, err
+}
+
 const createUser = `-- name: CreateUser :one
 INSERT INTO "user" (id, name, email, image)
-VALUES ($1, $2, $3, $4) RETURNING id, name, email, email_verified, image, created_at, updated_at, role, banned, ban_reason, ban_expires, two_factor_enabled
+VALUES ($1, $2, $3, $4) RETURNING id, name, email, email_verified, image, created_at, updated_at, role, banned, ban_reason, ban_expires, two_factor_enabled, avatar_key, avatar_content_type, avatar_updated_at
 `
 
 type CreateUserParams struct {
@@ -44,6 +73,9 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.BanReason,
 		&i.BanExpires,
 		&i.TwoFactorEnabled,
+		&i.AvatarKey,
+		&i.AvatarContentType,
+		&i.AvatarUpdatedAt,
 	)
 	return i, err
 }
@@ -58,7 +90,7 @@ func (q *Queries) DeleteUser(ctx context.Context, id string) error {
 }
 
 const getUser = `-- name: GetUser :one
-SELECT id, name, email, email_verified, image, created_at, updated_at, role, banned, ban_reason, ban_expires, two_factor_enabled FROM "user" WHERE id = $1
+SELECT id, name, email, email_verified, image, created_at, updated_at, role, banned, ban_reason, ban_expires, two_factor_enabled, avatar_key, avatar_content_type, avatar_updated_at FROM "user" WHERE id = $1
 `
 
 func (q *Queries) GetUser(ctx context.Context, id string) (User, error) {
@@ -77,12 +109,15 @@ func (q *Queries) GetUser(ctx context.Context, id string) (User, error) {
 		&i.BanReason,
 		&i.BanExpires,
 		&i.TwoFactorEnabled,
+		&i.AvatarKey,
+		&i.AvatarContentType,
+		&i.AvatarUpdatedAt,
 	)
 	return i, err
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, name, email, email_verified, image, created_at, updated_at, role, banned, ban_reason, ban_expires, two_factor_enabled FROM "user" WHERE email = $1
+SELECT id, name, email, email_verified, image, created_at, updated_at, role, banned, ban_reason, ban_expires, two_factor_enabled, avatar_key, avatar_content_type, avatar_updated_at FROM "user" WHERE email = $1
 `
 
 func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
@@ -101,12 +136,15 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.BanReason,
 		&i.BanExpires,
 		&i.TwoFactorEnabled,
+		&i.AvatarKey,
+		&i.AvatarContentType,
+		&i.AvatarUpdatedAt,
 	)
 	return i, err
 }
 
 const listUsers = `-- name: ListUsers :many
-SELECT id, name, email, email_verified, image, created_at, updated_at, role, banned, ban_reason, ban_expires, two_factor_enabled FROM "user" ORDER BY name
+SELECT id, name, email, email_verified, image, created_at, updated_at, role, banned, ban_reason, ban_expires, two_factor_enabled, avatar_key, avatar_content_type, avatar_updated_at FROM "user" ORDER BY name
 `
 
 func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
@@ -131,6 +169,9 @@ func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
 			&i.BanReason,
 			&i.BanExpires,
 			&i.TwoFactorEnabled,
+			&i.AvatarKey,
+			&i.AvatarContentType,
+			&i.AvatarUpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -143,18 +184,17 @@ func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
 }
 
 const updateUser = `-- name: UpdateUser :one
-UPDATE "user" SET name=$2, image=$3, updated_at=NOW()
-WHERE id=$1 RETURNING id, name, email, email_verified, image, created_at, updated_at, role, banned, ban_reason, ban_expires, two_factor_enabled
+UPDATE "user" SET name=$2, updated_at=NOW()
+WHERE id=$1 RETURNING id, name, email, email_verified, image, created_at, updated_at, role, banned, ban_reason, ban_expires, two_factor_enabled, avatar_key, avatar_content_type, avatar_updated_at
 `
 
 type UpdateUserParams struct {
-	ID    string      `json:"id"`
-	Name  string      `json:"name"`
-	Image pgtype.Text `json:"image"`
+	ID   string `json:"id"`
+	Name string `json:"name"`
 }
 
 func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error) {
-	row := q.db.QueryRow(ctx, updateUser, arg.ID, arg.Name, arg.Image)
+	row := q.db.QueryRow(ctx, updateUser, arg.ID, arg.Name)
 	var i User
 	err := row.Scan(
 		&i.ID,
@@ -169,13 +209,59 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, e
 		&i.BanReason,
 		&i.BanExpires,
 		&i.TwoFactorEnabled,
+		&i.AvatarKey,
+		&i.AvatarContentType,
+		&i.AvatarUpdatedAt,
+	)
+	return i, err
+}
+
+const updateUserAvatar = `-- name: UpdateUserAvatar :one
+UPDATE "user"
+SET image=$2, avatar_key=$3, avatar_content_type=$4, avatar_updated_at=$5, updated_at=NOW()
+WHERE id=$1 RETURNING id, name, email, email_verified, image, created_at, updated_at, role, banned, ban_reason, ban_expires, two_factor_enabled, avatar_key, avatar_content_type, avatar_updated_at
+`
+
+type UpdateUserAvatarParams struct {
+	ID                string             `json:"id"`
+	Image             pgtype.Text        `json:"image"`
+	AvatarKey         pgtype.Text        `json:"avatar_key"`
+	AvatarContentType pgtype.Text        `json:"avatar_content_type"`
+	AvatarUpdatedAt   pgtype.Timestamptz `json:"avatar_updated_at"`
+}
+
+func (q *Queries) UpdateUserAvatar(ctx context.Context, arg UpdateUserAvatarParams) (User, error) {
+	row := q.db.QueryRow(ctx, updateUserAvatar,
+		arg.ID,
+		arg.Image,
+		arg.AvatarKey,
+		arg.AvatarContentType,
+		arg.AvatarUpdatedAt,
+	)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Email,
+		&i.EmailVerified,
+		&i.Image,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Role,
+		&i.Banned,
+		&i.BanReason,
+		&i.BanExpires,
+		&i.TwoFactorEnabled,
+		&i.AvatarKey,
+		&i.AvatarContentType,
+		&i.AvatarUpdatedAt,
 	)
 	return i, err
 }
 
 const updateUserRole = `-- name: UpdateUserRole :one
 UPDATE "user" SET role=$2, updated_at=NOW()
-WHERE id=$1 RETURNING id, name, email, email_verified, image, created_at, updated_at, role, banned, ban_reason, ban_expires, two_factor_enabled
+WHERE id=$1 RETURNING id, name, email, email_verified, image, created_at, updated_at, role, banned, ban_reason, ban_expires, two_factor_enabled, avatar_key, avatar_content_type, avatar_updated_at
 `
 
 type UpdateUserRoleParams struct {
@@ -199,6 +285,9 @@ func (q *Queries) UpdateUserRole(ctx context.Context, arg UpdateUserRoleParams) 
 		&i.BanReason,
 		&i.BanExpires,
 		&i.TwoFactorEnabled,
+		&i.AvatarKey,
+		&i.AvatarContentType,
+		&i.AvatarUpdatedAt,
 	)
 	return i, err
 }

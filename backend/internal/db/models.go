@@ -83,18 +83,21 @@ type TeamMember struct {
 }
 
 type User struct {
-	ID               string             `json:"id"`
-	Name             string             `json:"name"`
-	Email            string             `json:"email"`
-	EmailVerified    bool               `json:"email_verified"`
-	Image            pgtype.Text        `json:"image"`
-	CreatedAt        pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
-	Role             string             `json:"role"`
-	Banned           bool               `json:"banned"`
-	BanReason        pgtype.Text        `json:"ban_reason"`
-	BanExpires       pgtype.Timestamptz `json:"ban_expires"`
-	TwoFactorEnabled bool               `json:"two_factor_enabled"`
+	ID                string             `json:"id"`
+	Name              string             `json:"name"`
+	Email             string             `json:"email"`
+	EmailVerified     bool               `json:"email_verified"`
+	Image             pgtype.Text        `json:"image"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	Role              string             `json:"role"`
+	Banned            bool               `json:"banned"`
+	BanReason         pgtype.Text        `json:"ban_reason"`
+	BanExpires        pgtype.Timestamptz `json:"ban_expires"`
+	TwoFactorEnabled  bool               `json:"two_factor_enabled"`
+	AvatarKey         pgtype.Text        `json:"avatar_key"`
+	AvatarContentType pgtype.Text        `json:"avatar_content_type"`
+	AvatarUpdatedAt   pgtype.Timestamptz `json:"avatar_updated_at"`
 }
 
 type Verification struct {

@@ -118,7 +118,7 @@ S3_FORCE_PATH_STYLE=true
 
 `JWT_SECRET` must be at least 32 characters and contain at least three of these character classes: uppercase letters, lowercase letters, digits, and symbols.
 
-`dev.sh` loads the database, Redis, and S3 variables from the root `.env` file. It rewrites Docker service hostnames to `127.0.0.1` because Air runs the Go API directly on the host. The current backend does not create Redis or S3 clients yet; these variables make the services ready for that integration.
+`dev.sh` loads the database, Redis, and S3 variables from the root `.env` file. It rewrites Docker service hostnames to `127.0.0.1` because Air runs the Go API directly on the host. Avatar storage uses the S3 configuration; Redis is running and ready for a future application client.
 
 | Variable | Default | Description |
 | --- | --- | --- |
@@ -236,9 +236,14 @@ Errors use `success: false` and a `message` field.
 | --- | --- | --- |
 | `GET` | `/users/me` | Get the current profile |
 | `PUT` | `/users/me` | Update the current profile |
+| `PUT` | `/users/me/avatar` | Upload a JPEG or PNG profile photo |
+| `DELETE` | `/users/me/avatar` | Remove the current profile photo |
+| `GET` | `/users/:id/avatar` | Read an authenticated user's profile photo |
 | `DELETE` | `/users/me` | Delete the current account |
 | `GET` | `/users` | List users as a global admin |
 | `PUT` | `/users/:id/role` | Change a user's global role |
+
+Avatar uploads use `multipart/form-data` with an `avatar` field. Files are limited to 2 MiB and 2048 × 2048 pixels. The backend validates and re-encodes JPEG or PNG data before storing it in the private S3-compatible bucket.
 
 ### Organizations and invitations
 
@@ -341,6 +346,6 @@ docker compose down
 
 ## Current scope
 
-The backend already exposes organization, invitation, and team management APIs. The current frontend focuses on authentication, account and session management, organization switching, the protected layout, and global user administration.
+The backend already exposes organization, invitation, team management, and S3-backed avatar APIs. The current frontend focuses on authentication, account and session management, profile-photo uploads, organization switching, the protected layout, and global user administration.
 
 The dashboard is still a placeholder. Email verification, password recovery, OAuth buttons, two-factor enrollment, and full organization/team management screens are not implemented yet.

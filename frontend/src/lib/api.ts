@@ -85,7 +85,8 @@ async function request<T>(
   retryAuth = true,
 ): Promise<ApiResponse<T>> {
   const headers: Record<string, string> = { ...(options.headers as Record<string, string>) };
-  if (options.body) headers["Content-Type"] = "application/json";
+  const isFormData = typeof FormData !== "undefined" && options.body instanceof FormData;
+  if (options.body && !isFormData) headers["Content-Type"] = "application/json";
   if (!["GET", "HEAD", "OPTIONS"].includes((options.method ?? "GET").toUpperCase()))
     headers["X-CSRF-Token"] = csrfToken() ?? "";
   try {
@@ -122,11 +123,17 @@ export async function logout() {
   return request("/auth/logout", { method: "POST" });
 }
 export const getSession = () => request<SessionData>("/auth/session");
-export const updateProfile = (name: string, image: string | null) =>
+export const updateProfile = (name: string) =>
   request<User>("/users/me", {
     method: "PUT",
-    body: JSON.stringify({ name, image }),
+    body: JSON.stringify({ name }),
   });
+export const uploadAvatar = (file: File) => {
+  const body = new FormData();
+  body.append("avatar", file);
+  return request<User>("/users/me/avatar", { method: "PUT", body });
+};
+export const removeAvatar = () => request<User>("/users/me/avatar", { method: "DELETE" });
 export const changePassword = (currentPassword: string, newPassword: string) =>
   request<void>("/auth/password", {
     method: "PUT",

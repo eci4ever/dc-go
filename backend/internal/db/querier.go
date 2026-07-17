@@ -10,6 +10,7 @@ import (
 
 type Querier interface {
 	ClearActiveOrganizationForMember(ctx context.Context, arg ClearActiveOrganizationForMemberParams) error
+	ClearUserAvatar(ctx context.Context, id string) (User, error)
 	CreateAccount(ctx context.Context, arg CreateAccountParams) (Account, error)
 	CreateInvitation(ctx context.Context, arg CreateInvitationParams) (Invitation, error)
 	CreateMember(ctx context.Context, arg CreateMemberParams) (Member, error)
@@ -60,6 +61,7 @@ type Querier interface {
 	UpdateSessionActiveOrganization(ctx context.Context, arg UpdateSessionActiveOrganizationParams) (Session, error)
 	UpdateTeam(ctx context.Context, arg UpdateTeamParams) (Team, error)
 	UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error)
+	UpdateUserAvatar(ctx context.Context, arg UpdateUserAvatarParams) (User, error)
 	UpdateUserRole(ctx context.Context, arg UpdateUserRoleParams) (User, error)
 }
 

@@ -72,12 +72,39 @@ func (r *Repository) Create(ctx context.Context, id, name, email string, image *
 	return toDomain(u), nil
 }
 
-func (r *Repository) Update(ctx context.Context, id, name string, image *string) (User, error) {
+func (r *Repository) Update(ctx context.Context, id, name string) (User, error) {
 	u, err := r.q.UpdateUser(ctx, db.UpdateUserParams{
-		ID:    id,
-		Name:  name,
-		Image: pgtext(image),
+		ID:   id,
+		Name: name,
 	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return User{}, ErrNotFound
+		}
+		return User{}, err
+	}
+	return toDomain(u), nil
+}
+
+func (r *Repository) UpdateAvatar(ctx context.Context, id, image, key, contentType string, updatedAt time.Time) (User, error) {
+	u, err := r.q.UpdateUserAvatar(ctx, db.UpdateUserAvatarParams{
+		ID:                id,
+		Image:             pgtext(&image),
+		AvatarKey:         pgtext(&key),
+		AvatarContentType: pgtext(&contentType),
+		AvatarUpdatedAt:   pgtype.Timestamptz{Time: updatedAt, Valid: true},
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return User{}, ErrNotFound
+		}
+		return User{}, err
+	}
+	return toDomain(u), nil
+}
+
+func (r *Repository) ClearAvatar(ctx context.Context, id string) (User, error) {
+	u, err := r.q.ClearUserAvatar(ctx, id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return User{}, ErrNotFound
@@ -111,18 +138,21 @@ func (r *Repository) Delete(ctx context.Context, id string) error {
 
 func toDomain(u db.User) User {
 	return User{
-		ID:               u.ID,
-		Name:             u.Name,
-		Email:            u.Email,
-		EmailVerified:    u.EmailVerified,
-		Image:            pgtextPtr(&u.Image),
-		Role:             Role(u.Role),
-		Banned:           u.Banned,
-		BanReason:        pgtextPtr(&u.BanReason),
-		BanExpires:       pgtimestamptzPtr(&u.BanExpires),
-		TwoFactorEnabled: u.TwoFactorEnabled,
-		CreatedAt:        u.CreatedAt.Time,
-		UpdatedAt:        u.UpdatedAt.Time,
+		ID:                u.ID,
+		Name:              u.Name,
+		Email:             u.Email,
+		EmailVerified:     u.EmailVerified,
+		Image:             pgtextPtr(&u.Image),
+		Role:              Role(u.Role),
+		Banned:            u.Banned,
+		BanReason:         pgtextPtr(&u.BanReason),
+		BanExpires:        pgtimestamptzPtr(&u.BanExpires),
+		TwoFactorEnabled:  u.TwoFactorEnabled,
+		AvatarKey:         pgtextPtr(&u.AvatarKey),
+		AvatarContentType: pgtextPtr(&u.AvatarContentType),
+		AvatarUpdatedAt:   pgtimestamptzPtr(&u.AvatarUpdatedAt),
+		CreatedAt:         u.CreatedAt.Time,
+		UpdatedAt:         u.UpdatedAt.Time,
 	}
 }
 
