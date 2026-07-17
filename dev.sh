@@ -9,8 +9,8 @@ if [[ ! -f .env ]]; then
   exit 1
 fi
 
-# Load only the values required by the backend. Parsing them instead of sourcing
-# the file prevents punctuation in secrets from being interpreted by the shell.
+# Load only application values. Parsing them instead of sourcing the file
+# prevents punctuation in secrets from being interpreted by the shell.
 while IFS= read -r line || [[ -n "$line" ]]; do
   line="${line%$'\r'}"
   case "$line" in
@@ -20,17 +20,28 @@ while IFS= read -r line || [[ -n "$line" ]]; do
   key="${line%%=*}"
   value="${line#*=}"
   case "$key" in
-    DATABASE_URL | JWT_SECRET) export "$key=$value" ;;
+    DATABASE_URL | JWT_SECRET | REDIS_PASSWORD | REDIS_URL | S3_ENDPOINT | S3_ACCESS_KEY | S3_SECRET_KEY | S3_BUCKET | S3_REGION | S3_USE_SSL | S3_FORCE_PATH_STYLE) export "$key=$value" ;;
   esac
 done < .env
 
 : "${DATABASE_URL:?DATABASE_URL must be set in .env}"
 : "${JWT_SECRET:?JWT_SECRET must be set in .env}"
+: "${REDIS_PASSWORD:?REDIS_PASSWORD must be set in .env}"
+: "${REDIS_URL:?REDIS_URL must be set in .env}"
+: "${S3_ACCESS_KEY:?S3_ACCESS_KEY must be set in .env}"
+: "${S3_SECRET_KEY:?S3_SECRET_KEY must be set in .env}"
+: "${S3_ENDPOINT:?S3_ENDPOINT must be set in .env}"
 
 # The Compose app reaches PostgreSQL as `db`; host-run Air reaches the same
 # published database through localhost.
 case "$DATABASE_URL" in
   *@db:*) export DATABASE_URL="${DATABASE_URL/@db:/@127.0.0.1:}" ;;
+esac
+case "$REDIS_URL" in
+  *@redis:*) export REDIS_URL="${REDIS_URL/@redis:/@127.0.0.1:}" ;;
+esac
+case "$S3_ENDPOINT" in
+  http://seaweedfs:*) export S3_ENDPOINT="${S3_ENDPOINT/http:\/\/seaweedfs:/http:\/\/127.0.0.1:}" ;;
 esac
 
 backend_pid=""
@@ -53,8 +64,8 @@ trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
-echo "Starting PostgreSQL..."
-docker compose up -d --wait db
+echo "Starting PostgreSQL, Redis, and SeaweedFS..."
+docker compose up -d --wait db redis seaweedfs
 
 echo "Starting Fiber API on http://localhost:3000..."
 (cd backend && exec air) &

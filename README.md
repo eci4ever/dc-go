@@ -105,11 +105,20 @@ The template contains:
 ```dotenv
 DATABASE_URL=postgres://postgres:postgres@db:5432/dc_go?sslmode=disable
 JWT_SECRET=ReplaceThisWithAStrong32CharacterSecret!123
+REDIS_PASSWORD=ReplaceThisWithARedisPassword!123
+REDIS_URL=redis://:ReplaceThisWithARedisPassword!123@redis:6379/0
+S3_ENDPOINT=http://seaweedfs:8333
+S3_ACCESS_KEY=dcgo
+S3_SECRET_KEY=ReplaceThisWithAnS3Secret!123
+S3_BUCKET=dc-go
+S3_REGION=us-east-1
+S3_USE_SSL=false
+S3_FORCE_PATH_STYLE=true
 ```
 
 `JWT_SECRET` must be at least 32 characters and contain at least three of these character classes: uppercase letters, lowercase letters, digits, and symbols.
 
-The backend also accepts these optional variables when they are provided directly to its process environment. The development script reads only `DATABASE_URL` and `JWT_SECRET` from the root `.env` file.
+`dev.sh` loads the database, Redis, and S3 variables from the root `.env` file. It rewrites Docker service hostnames to `127.0.0.1` because Air runs the Go API directly on the host. The current backend does not create Redis or S3 clients yet; these variables make the services ready for that integration.
 
 | Variable | Default | Description |
 | --- | --- | --- |
@@ -118,6 +127,11 @@ The backend also accepts these optional variables when they are provided directl
 | `JWT_ISSUER` | `dc-go` | Expected JWT issuer |
 | `JWT_AUDIENCE` | `dc-go` | Expected JWT audience |
 | `STATIC_DIR` | `./public` | Directory served by the Go application |
+| `REDIS_URL` | Required | Password-protected Redis connection URL |
+| `S3_ENDPOINT` | `http://seaweedfs:8333` | S3-compatible API endpoint |
+| `S3_BUCKET` | `dc-go` | Default object-storage bucket |
+| `S3_REGION` | `us-east-1` | S3 signing region |
+| `S3_FORCE_PATH_STYLE` | `true` | Required for the local SeaweedFS endpoint |
 
 The `.env` file is ignored by Git. Do not commit real secrets.
 
@@ -139,7 +153,7 @@ Make sure Docker is running, then start the complete development environment:
 
 The script:
 
-1. Starts PostgreSQL and waits for it to become healthy.
+1. Starts PostgreSQL, Redis, and SeaweedFS and waits for them to become healthy.
 2. Runs the Fiber API through Air with hot reload.
 3. Runs the Vite development server.
 4. Stops Air and Vite together when either exits or you press `Ctrl+C`.
@@ -152,12 +166,19 @@ Development services are available at:
 | Backend API | http://localhost:3000/api/v1 |
 | Health check | http://localhost:3000/api/v1/health |
 | PostgreSQL | `localhost:5432` |
+| Redis | `localhost:6379` |
+| SeaweedFS S3 API | http://localhost:8333 |
+| SeaweedFS Filer UI | http://localhost:8888 |
+| SeaweedFS Master UI | http://localhost:9333 |
+| SeaweedFS Admin UI | http://localhost:23646 |
 
-Vite proxies `/api` requests to the backend. The PostgreSQL container remains running after `dev.sh` exits; stop it when needed with:
+Vite proxies `/api` requests to the backend. Infrastructure containers remain running after `dev.sh` exits; stop them when needed with:
 
 ```bash
-docker compose stop db
+docker compose stop db redis seaweedfs
 ```
+
+Redis uses append-only persistence in the `redisdata` volume. SeaweedFS runs in single-node `weed mini` mode, creates the configured bucket automatically, and stores data in the `seaweeddata` volume. Generic `S3_*` variables keep the application portable across S3-compatible providers.
 
 ## Authentication model
 
@@ -312,7 +333,7 @@ docker compose ps
 curl http://localhost:3000/api/v1/health
 ```
 
-Stop the stack without deleting PostgreSQL data:
+Stop the stack without deleting PostgreSQL, Redis, or SeaweedFS data:
 
 ```bash
 docker compose down
