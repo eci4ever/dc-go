@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import {
@@ -8,10 +8,12 @@ import {
   KeyRoundIcon,
   LaptopIcon,
   LogOutIcon,
+  ImagePlusIcon,
   ShieldCheckIcon,
   ShieldPlusIcon,
   SmartphoneIcon,
   TerminalIcon,
+  Trash2Icon,
   UserRoundIcon,
 } from "lucide-react";
 
@@ -62,7 +64,10 @@ function AccountPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [name, setName] = useState(user?.name ?? "");
-  const [image, setImage] = useState(user?.image ?? "");
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+  const [removeAvatarOpen, setRemoveAvatarOpen] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -72,12 +77,18 @@ function AccountPage() {
   useEffect(() => {
     if (!user) return;
     setName(user.name);
-    setImage(user.image ?? "");
   }, [user]);
+
+  useEffect(
+    () => () => {
+      if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+    },
+    [avatarPreview],
+  );
 
   const updateProfile = useMutation({
     mutationFn: async () => {
-      const response = await api.updateProfile(name.trim(), image.trim() || null);
+      const response = await api.updateProfile(name.trim());
       if (!response.success || !response.data) {
         throw new Error(response.message ?? "Unable to update your profile");
       }
@@ -87,6 +98,39 @@ function AccountPage() {
       queryClient.setQueryData<SessionData | null>(sessionQueryKey, (current) =>
         current ? { ...current, user: updatedUser } : current,
       );
+    },
+  });
+
+  const uploadAvatar = useMutation({
+    mutationFn: async (file: File) => {
+      const response = await api.uploadAvatar(file);
+      if (!response.success || !response.data) {
+        throw new Error(response.message ?? "Unable to upload your photo");
+      }
+      return response.data;
+    },
+    onSuccess: (updatedUser) => {
+      queryClient.setQueryData<SessionData | null>(sessionQueryKey, (current) =>
+        current ? { ...current, user: updatedUser } : current,
+      );
+      setAvatarPreview(null);
+    },
+    onError: () => setAvatarPreview(null),
+  });
+
+  const removeAvatar = useMutation({
+    mutationFn: async () => {
+      const response = await api.removeAvatar();
+      if (!response.success || !response.data) {
+        throw new Error(response.message ?? "Unable to remove your photo");
+      }
+      return response.data;
+    },
+    onSuccess: (updatedUser) => {
+      queryClient.setQueryData<SessionData | null>(sessionQueryKey, (current) =>
+        current ? { ...current, user: updatedUser } : current,
+      );
+      setRemoveAvatarOpen(false);
     },
   });
 
@@ -153,6 +197,27 @@ function AccountPage() {
     changePassword.mutate();
   };
 
+  const selectAvatar = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    setAvatarError(null);
+    uploadAvatar.reset();
+    removeAvatar.reset();
+    if (!["image/jpeg", "image/png"].includes(file.type)) {
+      setAvatarError("Choose a JPEG or PNG image.");
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setAvatarError("Choose an image that is 2 MB or smaller.");
+      return;
+    }
+
+    setAvatarPreview(URL.createObjectURL(file));
+    uploadAvatar.mutate(file);
+  };
+
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-8">
       <div className="flex flex-col gap-2 border-b pb-6">
@@ -184,21 +249,106 @@ function AccountPage() {
             <div className="flex flex-col gap-4 rounded-xl border bg-muted/30 p-4 sm:flex-row sm:items-center">
               <div className="flex min-w-0 flex-1 items-center gap-4">
                 <Avatar className="rounded-xl data-[size=lg]:size-16" size="lg">
-                  <AvatarImage src={image.trim() || undefined} alt={name || user.name} />
+                  <AvatarImage
+                    src={avatarPreview ?? user.image ?? undefined}
+                    alt={name || user.name}
+                  />
                   <AvatarFallback className="rounded-xl text-base font-medium">
                     {(name || user.name).slice(0, 2).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
-                <div className="min-w-0 flex-1">
+                <div className="flex min-w-0 flex-1 flex-col gap-1">
                   <p className="truncate font-medium">{name || user.name}</p>
                   <p className="truncate text-sm text-muted-foreground">{user.email}</p>
+                  <Badge
+                    className="mt-1 w-fit"
+                    variant={user.emailVerified ? "secondary" : "outline"}
+                  >
+                    {user.emailVerified ? <BadgeCheckIcon /> : <CircleAlertIcon />}
+                    {user.emailVerified ? "Verified" : "Unverified"}
+                  </Badge>
                 </div>
               </div>
-              <Badge className="w-fit" variant={user.emailVerified ? "secondary" : "outline"}>
-                {user.emailVerified ? <BadgeCheckIcon /> : <CircleAlertIcon />}
-                {user.emailVerified ? "Verified" : "Unverified"}
-              </Badge>
+              <div className="flex flex-wrap gap-2">
+                <Input
+                  ref={avatarInputRef}
+                  id="account-avatar"
+                  type="file"
+                  accept="image/jpeg,image/png"
+                  className="sr-only"
+                  aria-describedby="account-avatar-description"
+                  onChange={selectAvatar}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={uploadAvatar.isPending || removeAvatar.isPending}
+                  onClick={() => avatarInputRef.current?.click()}
+                >
+                  {uploadAvatar.isPending ? (
+                    <Spinner data-icon="inline-start" />
+                  ) : (
+                    <ImagePlusIcon data-icon="inline-start" />
+                  )}
+                  {uploadAvatar.isPending
+                    ? "Uploading"
+                    : user.image
+                      ? "Change photo"
+                      : "Upload photo"}
+                </Button>
+                {user.image && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={uploadAvatar.isPending || removeAvatar.isPending}
+                    onClick={() => setRemoveAvatarOpen(true)}
+                  >
+                    <Trash2Icon data-icon="inline-start" />
+                    Remove
+                  </Button>
+                )}
+              </div>
             </div>
+            <p id="account-avatar-description" className="text-sm text-muted-foreground">
+              JPEG or PNG, up to 2 MB. Images larger than 2048 × 2048 pixels are rejected.
+            </p>
+            {avatarError && (
+              <Alert variant="destructive">
+                <CircleAlertIcon />
+                <AlertTitle>Photo not selected</AlertTitle>
+                <AlertDescription>{avatarError}</AlertDescription>
+              </Alert>
+            )}
+            {uploadAvatar.error && (
+              <Alert variant="destructive">
+                <CircleAlertIcon />
+                <AlertTitle>Photo upload failed</AlertTitle>
+                <AlertDescription>{uploadAvatar.error.message}</AlertDescription>
+              </Alert>
+            )}
+            {uploadAvatar.isSuccess && (
+              <Alert>
+                <CircleCheckIcon />
+                <AlertTitle>Photo updated</AlertTitle>
+                <AlertDescription>Your new profile photo is now active.</AlertDescription>
+              </Alert>
+            )}
+            {removeAvatar.error && (
+              <Alert variant="destructive">
+                <CircleAlertIcon />
+                <AlertTitle>Photo removal failed</AlertTitle>
+                <AlertDescription>{removeAvatar.error.message}</AlertDescription>
+              </Alert>
+            )}
+            {removeAvatar.isSuccess && (
+              <Alert>
+                <CircleCheckIcon />
+                <AlertTitle>Photo removed</AlertTitle>
+                <AlertDescription>Your profile is using its initials again.</AlertDescription>
+              </Alert>
+            )}
             <div className="max-w-2xl">
               <FieldGroup>
                 <Field>
@@ -214,21 +364,6 @@ function AccountPage() {
                       setName(event.target.value);
                     }}
                   />
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor="account-avatar">Avatar URL</FieldLabel>
-                  <Input
-                    id="account-avatar"
-                    type="url"
-                    value={image}
-                    maxLength={2048}
-                    placeholder="https://example.com/avatar.jpg"
-                    onChange={(event) => {
-                      updateProfile.reset();
-                      setImage(event.target.value);
-                    }}
-                  />
-                  <FieldDescription>Use a secure, publicly accessible image URL.</FieldDescription>
                 </Field>
                 <Field data-disabled>
                   <FieldLabel htmlFor="account-email">Email address</FieldLabel>
@@ -477,6 +612,28 @@ function AccountPage() {
           )}
         </CardContent>
       </Card>
+
+      <AlertDialog open={removeAvatarOpen} onOpenChange={setRemoveAvatarOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove your profile photo?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Your uploaded photo will be deleted and your initials will be shown instead.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={removeAvatar.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              disabled={removeAvatar.isPending}
+              onClick={() => removeAvatar.mutate()}
+            >
+              {removeAvatar.isPending && <Spinner data-icon="inline-start" />}
+              Remove photo
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog
         open={sessionToRevoke !== null}

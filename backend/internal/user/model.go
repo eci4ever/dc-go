@@ -10,16 +10,19 @@ const (
 )
 
 type User struct {
-	ID               string
-	Name             string
-	Email            string
-	EmailVerified    bool
-	Image            *string
-	Role             Role
-	Banned           bool
-	BanReason        *string
-	BanExpires       *time.Time
-	TwoFactorEnabled bool
-	CreatedAt        time.Time
-	UpdatedAt        time.Time
+	ID                string
+	Name              string
+	Email             string
+	EmailVerified     bool
+	Image             *string
+	Role              Role
+	Banned            bool
+	BanReason         *string
+	BanExpires        *time.Time
+	TwoFactorEnabled  bool
+	AvatarKey         *string
+	AvatarContentType *string
+	AvatarUpdatedAt   *time.Time
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
 }

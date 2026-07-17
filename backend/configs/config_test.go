@@ -4,6 +4,13 @@ import "testing"
 
 const validSecret = "A-Strong-Secret-With-Upper-Lower-123!"
 
+func setValidS3Config(t *testing.T) {
+	t.Helper()
+	t.Setenv("S3_ENDPOINT", "http://storage:8333")
+	t.Setenv("S3_ACCESS_KEY", "test-access-key")
+	t.Setenv("S3_SECRET_KEY", "test-secret-key")
+}
+
 func TestStrongSecret(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -31,6 +38,7 @@ func TestLoadDefaults(t *testing.T) {
 	t.Setenv("PORT", "")
 	t.Setenv("JWT_ISSUER", "")
 	t.Setenv("JWT_AUDIENCE", "")
+	setValidS3Config(t)
 
 	cfg, err := Load()
 	if err != nil {
@@ -48,6 +56,7 @@ func TestLoadProductionEnablesSecureCookies(t *testing.T) {
 	t.Setenv("DATABASE_URL", "postgres://example")
 	t.Setenv("JWT_SECRET", validSecret)
 	t.Setenv("ENVIRONMENT", "production")
+	setValidS3Config(t)
 
 	cfg, err := Load()
 	if err != nil {
@@ -63,5 +72,15 @@ func TestLoadRejectsInvalidConfiguration(t *testing.T) {
 	t.Setenv("JWT_SECRET", "weak")
 	if _, err := Load(); err == nil {
 		t.Fatal("Load() should reject missing database URL and weak secret")
+	}
+}
+
+func TestLoadRejectsInvalidS3Boolean(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://example")
+	t.Setenv("JWT_SECRET", validSecret)
+	setValidS3Config(t)
+	t.Setenv("S3_FORCE_PATH_STYLE", "sometimes")
+	if _, err := Load(); err == nil {
+		t.Fatal("Load() should reject an invalid S3_FORCE_PATH_STYLE value")
 	}
 }

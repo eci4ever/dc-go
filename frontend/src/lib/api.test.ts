@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { getSession, updateProfile } from "@/lib/api";
+import { getSession, updateProfile, uploadAvatar } from "@/lib/api";
 
 const jsonResponse = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -30,20 +30,33 @@ describe("API client", () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ success: true, data: {} }));
     vi.stubGlobal("fetch", fetchMock);
 
-    await updateProfile("Updated User", null);
+    await updateProfile("Updated User");
 
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/v1/users/me",
       expect.objectContaining({
         method: "PUT",
         credentials: "include",
-        body: JSON.stringify({ name: "Updated User", image: null }),
+        body: JSON.stringify({ name: "Updated User" }),
         headers: expect.objectContaining({
           "Content-Type": "application/json",
           "X-CSRF-Token": "test-csrf-token",
         }),
       }),
     );
+  });
+
+  it("uploads avatars as FormData without overriding the multipart content type", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ success: true, data: {} }));
+    vi.stubGlobal("fetch", fetchMock);
+    const file = new File(["avatar"], "avatar.png", { type: "image/png" });
+
+    await uploadAvatar(file);
+
+    const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(options.body).toBeInstanceOf(FormData);
+    expect((options.body as FormData).get("avatar")).toBe(file);
+    expect(options.headers).toEqual({ "X-CSRF-Token": "test-csrf-token" });
   });
 
   it("refreshes once and retries an unauthorized request", async () => {

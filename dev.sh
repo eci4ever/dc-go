@@ -41,7 +41,7 @@ case "$REDIS_URL" in
   *@redis:*) export REDIS_URL="${REDIS_URL/@redis:/@127.0.0.1:}" ;;
 esac
 case "$S3_ENDPOINT" in
-  http://seaweedfs:*) export S3_ENDPOINT="${S3_ENDPOINT/http:\/\/seaweedfs:/http:\/\/127.0.0.1:}" ;;
+  http://seaweedfs:*) export S3_ENDPOINT="${S3_ENDPOINT/seaweedfs/127.0.0.1}" ;;
 esac
 
 backend_pid=""

@@ -3,8 +3,7 @@ package user
 import "time"
 
 type UpdateUserRequest struct {
-	Name  string  `json:"name" validate:"required,min=1,max=100"`
-	Image *string `json:"image" validate:"omitempty,url,max=2048"`
+	Name string `json:"name" validate:"required,min=1,max=100"`
 }
 
 type UpdateRoleRequest struct {
