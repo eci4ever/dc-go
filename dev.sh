@@ -54,7 +54,7 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 
 echo "Starting PostgreSQL..."
-docker compose up -d db
+docker compose up -d --wait db
 
 echo "Starting Fiber API on http://localhost:3000..."
 (cd backend && exec air) &
