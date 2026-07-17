@@ -7,6 +7,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"syscall"
+	"time"
 
 	"github.com/eci4ever/dc-go/configs"
 	"github.com/eci4ever/dc-go/internal/auth"
@@ -16,6 +17,8 @@ import (
 	"github.com/eci4ever/dc-go/internal/user"
 	"github.com/eci4ever/dc-go/pkg/database"
 	"github.com/eci4ever/dc-go/pkg/logger"
+	"github.com/eci4ever/dc-go/pkg/ratelimit"
+	"github.com/eci4ever/dc-go/pkg/redisclient"
 	"github.com/eci4ever/dc-go/pkg/response"
 
 	"github.com/gofiber/fiber/v2"
@@ -37,6 +40,13 @@ func main() {
 
 	pool := database.Connect(ctx, cfg.DatabaseURL)
 	defer pool.Close()
+	redisClient, err := redisclient.Connect(ctx, cfg.RedisURL)
+	if err != nil {
+		slog.Error("failed to connect to Redis", "error", err)
+		os.Exit(1)
+	}
+	defer redisClient.Close()
+	slog.Info("connected to Redis")
 
 	database.RunMigrations(ctx, pool)
 	avatarStore, err := storage.NewS3Store(ctx, storage.Config{
@@ -88,10 +98,23 @@ func main() {
 		if err != nil {
 			dbStatus = "disconnected"
 		}
+		redisStatus, redisLatency, redisErr := redisclient.Ping(c.UserContext(), redisClient)
+		status := "running"
+		if err != nil || redisErr != nil {
+			status = "degraded"
+		}
 		return c.JSON(response.OK(fiber.Map{
-			"status":  "running",
+			"status":  status,
 			"db":      dbStatus,
 			"latency": latency,
+			"postgres": fiber.Map{
+				"status":     dbStatus,
+				"latency_ms": latency,
+			},
+			"redis": fiber.Map{
+				"status":     redisStatus,
+				"latency_ms": redisLatency,
+			},
 		}))
 	})
 
@@ -99,11 +122,19 @@ func main() {
 	authMw := auth.AuthMiddleware(jwtSvc)
 	csrfMw := auth.CSRFMiddleware()
 	adminMw := auth.RequireUserRole(userRepo, user.RoleAdmin)
+	rateStore := ratelimit.NewRedisStore(redisClient)
+	authLimits := auth.RateLimiters{
+		Register:       ratelimit.Middleware(rateStore, ratelimit.Policy{Name: "auth-register", Limit: 3, Window: time.Hour, Key: ratelimit.ByIP}),
+		Login:          ratelimit.Middleware(rateStore, ratelimit.Policy{Name: "auth-login", Limit: 5, Window: 15 * time.Minute, Key: ratelimit.ByIP}),
+		Refresh:        ratelimit.Middleware(rateStore, ratelimit.Policy{Name: "auth-refresh", Limit: 30, Window: time.Minute, Key: ratelimit.ByIP}),
+		ChangePassword: ratelimit.Middleware(rateStore, ratelimit.Policy{Name: "auth-password", Limit: 5, Window: time.Hour, Key: ratelimit.ByUser}),
+	}
+	invitationLimit := ratelimit.Middleware(rateStore, ratelimit.Policy{Name: "invitation-create", Limit: 20, Window: time.Hour, Key: ratelimit.ByParam("id")})
 
 	// Register routes
 	user.RegisterRoutes(v1, userHdl, authMw, csrfMw, adminMw)
-	auth.RegisterRoutes(v1, authHdl, authMw, csrfMw)
-	organization.RegisterRoutes(v1, orgHdl, authMw, csrfMw)
+	auth.RegisterRoutes(v1, authHdl, authMw, csrfMw, authLimits)
+	organization.RegisterRoutes(v1, orgHdl, invitationLimit, authMw, csrfMw)
 	team.RegisterRoutes(v1, teamHdl, authMw, csrfMw)
 
 	staticDir := os.Getenv("STATIC_DIR")

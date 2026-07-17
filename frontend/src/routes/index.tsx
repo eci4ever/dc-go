@@ -10,8 +10,14 @@ interface HealthResponse {
   success: boolean;
   data?: {
     status: string;
-    db: string;
-    latency: number;
+    postgres: {
+      status: string;
+      latency_ms: number;
+    };
+    redis: {
+      status: string;
+      latency_ms: number;
+    };
   };
 }
 
@@ -25,6 +31,7 @@ function LandingPage() {
   });
 
   const health = data?.data;
+  const isOperational = !isError && !isLoading && health?.status === "running";
   const value = (current: string | number | undefined) =>
     isLoading ? "Checking…" : isError ? "Unavailable" : String(current ?? "Unknown");
 
@@ -61,27 +68,44 @@ function LandingPage() {
               </p>
             </div>
             <Badge
-              variant={isError ? "destructive" : "outline"}
+              variant={isError || health?.status === "degraded" ? "destructive" : "outline"}
               className={
-                !isError && !isLoading
+                isOperational
                   ? "gap-2 rounded-full border-0 bg-muted px-3 py-1 text-foreground"
                   : "gap-2 rounded-full px-3 py-1"
               }
             >
-              {!isError && !isLoading && (
+              {isOperational && (
                 <span className="flex size-5 items-center justify-center rounded-full bg-emerald-600 text-white">
                   <Check className="size-3.5" />
                 </span>
               )}
-              {isLoading ? "Checking" : isError ? "Offline" : "Operational"}
+              {isLoading
+                ? "Checking"
+                : isError
+                  ? "Offline"
+                  : health?.status === "degraded"
+                    ? "Degraded"
+                    : "Operational"}
             </Badge>
           </div>
           <div className="grid gap-4 md:grid-cols-3">
             <StatusCard label="API status" value={value(health?.status)} />
-            <StatusCard label="Database status" value={value(health?.db)} />
             <StatusCard
-              label="Database latency"
-              value={isLoading || isError ? value(undefined) : `${health?.latency ?? "—"} ms`}
+              label="PostgreSQL"
+              value={
+                isLoading || isError
+                  ? value(undefined)
+                  : `${health?.postgres?.status ?? "Unknown"} · ${health?.postgres?.latency_ms ?? "—"} ms`
+              }
+            />
+            <StatusCard
+              label="Redis"
+              value={
+                isLoading || isError
+                  ? value(undefined)
+                  : `${health?.redis?.status ?? "Unknown"} · ${health?.redis?.latency_ms ?? "—"} ms`
+              }
             />
           </div>
         </div>

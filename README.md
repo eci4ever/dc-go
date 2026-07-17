@@ -114,11 +114,12 @@ S3_BUCKET=dc-go
 S3_REGION=us-east-1
 S3_USE_SSL=false
 S3_FORCE_PATH_STYLE=true
+REDISINSIGHT_ENCRYPTION_KEY=ReplaceThisWithA32CharacterEncryptionKey!123
 ```
 
 `JWT_SECRET` must be at least 32 characters and contain at least three of these character classes: uppercase letters, lowercase letters, digits, and symbols.
 
-`dev.sh` loads the database, Redis, and S3 variables from the root `.env` file. It rewrites Docker service hostnames to `127.0.0.1` because Air runs the Go API directly on the host. Avatar storage uses the S3 configuration; Redis is running and ready for a future application client.
+`dev.sh` loads the database, Redis, and S3 variables from the root `.env` file. It rewrites Docker service hostnames to `127.0.0.1` because Air runs the Go API directly on the host. Avatar storage uses the S3 configuration; Redis provides distributed rate limiting and is included in the API health check.
 
 | Variable | Default | Description |
 | --- | --- | --- |
@@ -132,6 +133,7 @@ S3_FORCE_PATH_STYLE=true
 | `S3_BUCKET` | `dc-go` | Default object-storage bucket |
 | `S3_REGION` | `us-east-1` | S3 signing region |
 | `S3_FORCE_PATH_STYLE` | `true` | Required for the local SeaweedFS endpoint |
+| `REDISINSIGHT_ENCRYPTION_KEY` | Required | Encrypts Redis Insight connection data at rest |
 
 The `.env` file is ignored by Git. Do not commit real secrets.
 
@@ -153,7 +155,7 @@ Make sure Docker is running, then start the complete development environment:
 
 The script:
 
-1. Starts PostgreSQL, Redis, and SeaweedFS and waits for them to become healthy.
+1. Starts PostgreSQL, Redis, SeaweedFS, and Redis Insight and waits for them to become healthy.
 2. Runs the Fiber API through Air with hot reload.
 3. Runs the Vite development server.
 4. Stops Air and Vite together when either exits or you press `Ctrl+C`.
@@ -167,6 +169,7 @@ Development services are available at:
 | Health check | http://localhost:3000/api/v1/health |
 | PostgreSQL | `localhost:5432` |
 | Redis | `localhost:6379` |
+| Redis Insight | http://localhost:5540 |
 | SeaweedFS S3 API | http://localhost:8333 |
 | SeaweedFS Filer UI | http://localhost:8888 |
 | SeaweedFS Master UI | http://localhost:9333 |
@@ -175,10 +178,12 @@ Development services are available at:
 Vite proxies `/api` requests to the backend. Infrastructure containers remain running after `dev.sh` exits; stop them when needed with:
 
 ```bash
-docker compose stop db redis seaweedfs
+docker compose --profile devtools stop db redis seaweedfs redisinsight
 ```
 
-Redis uses append-only persistence in the `redisdata` volume. SeaweedFS runs in single-node `weed mini` mode, creates the configured bucket automatically, and stores data in the `seaweeddata` volume. Generic `S3_*` variables keep the application portable across S3-compatible providers.
+Redis Insight registers `DC-GO Redis` automatically using `REDIS_PASSWORD`; complete its first-run terms screen if prompted.
+
+Redis Insight is in the `devtools` Compose profile and binds only to `127.0.0.1`, so starting the production `app` service does not expose or start it. Redis Insight state is stored in `redisinsightdata`, Redis data in `redisdata`, and SeaweedFS data in `seaweeddata`. SeaweedFS runs in single-node `weed mini` mode and creates the configured bucket automatically. Generic `S3_*` variables keep the application portable across S3-compatible providers.
 
 ## Authentication model
 
@@ -191,6 +196,18 @@ Successful registration or login sets three cookies:
 When an API request receives `401 Unauthorized`, the frontend attempts one refresh. A successful refresh rotates the database session token and retries the original request.
 
 Sessions can also store the user's active organization and team. Organization access is always checked against current membership rather than trusting frontend state.
+
+Redis-backed fixed-window limits protect sensitive endpoints across all API instances:
+
+| Action | Limit | Key |
+| --- | --- | --- |
+| Register | 3 per hour | Client IP |
+| Login | 5 per 15 minutes | Client IP |
+| Refresh session | 30 per minute | Client IP |
+| Change password | 5 per hour | User |
+| Create invitation | 20 per hour | Organization |
+
+Limited responses return `429 Too Many Requests` with `RateLimit-*` and `Retry-After` headers. Sensitive endpoints return `503 Service Unavailable` if Redis cannot enforce a limit. Identifiers are hashed before being stored in Redis.
 
 ## Roles
 

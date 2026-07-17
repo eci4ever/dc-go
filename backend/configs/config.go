@@ -10,6 +10,7 @@ import (
 type Config struct {
 	Port         string
 	DatabaseURL  string
+	RedisURL     string
 	JWTSecret    string
 	JWTIssuer    string
 	JWTAudience  string
@@ -37,6 +38,7 @@ func Load() (Config, error) {
 	cfg := Config{
 		Port:         getEnv("PORT", "3000"),
 		DatabaseURL:  os.Getenv("DATABASE_URL"),
+		RedisURL:     os.Getenv("REDIS_URL"),
 		JWTSecret:    os.Getenv("JWT_SECRET"),
 		JWTIssuer:    getEnv("JWT_ISSUER", "dc-go"),
 		JWTAudience:  getEnv("JWT_AUDIENCE", "dc-go"),
@@ -50,8 +52,8 @@ func Load() (Config, error) {
 		S3UseSSL:     s3UseSSL,
 		S3PathStyle:  s3PathStyle,
 	}
-	if cfg.DatabaseURL == "" || !strongSecret(cfg.JWTSecret) || cfg.S3Endpoint == "" || cfg.S3AccessKey == "" || cfg.S3SecretKey == "" {
-		return Config{}, errors.New("DATABASE_URL, a strong JWT_SECRET, and S3 connection settings are required")
+	if cfg.DatabaseURL == "" || cfg.RedisURL == "" || !strongSecret(cfg.JWTSecret) || cfg.S3Endpoint == "" || cfg.S3AccessKey == "" || cfg.S3SecretKey == "" {
+		return Config{}, errors.New("DATABASE_URL, REDIS_URL, a strong JWT_SECRET, and S3 connection settings are required")
 	}
 	return cfg, nil
 }
