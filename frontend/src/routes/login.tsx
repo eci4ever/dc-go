@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useState } from "react";
 import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
 import { LoginForm } from "@/components/login-form";
@@ -38,7 +37,7 @@ function LoginPage() {
           <div className="flex size-6 items-center justify-center rounded-md bg-primary text-primary-foreground">
             <GalleryVerticalEnd className="size-4" />
           </div>
-          DC Express
+          DC-GO
         </Link>
         <LoginForm onSubmit={handleSubmit} error={error} submitting={submitting} />
       </div>

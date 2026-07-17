@@ -7,7 +7,7 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
-	"dc-express/internal/user"
+	"github.com/eci4ever/dc-go/internal/user"
 )
 
 const (
@@ -31,13 +31,8 @@ func (s *Service) Register(ctx context.Context, req RegisterRequest, ipAddress, 
 		return TokenResponse{}, err
 	}
 
-	userID, err := s.repo.CreateUser(ctx, req.Name, req.Email, nil)
+	userID, err := s.repo.CreateCredentialUser(ctx, req.Name, req.Email, string(hash))
 	if err != nil {
-		return TokenResponse{}, err
-	}
-
-	hashStr := string(hash)
-	if err := s.repo.CreateAccount(ctx, userID, "credential", req.Email, &hashStr); err != nil {
 		return TokenResponse{}, err
 	}
 

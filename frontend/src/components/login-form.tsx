@@ -1,5 +1,3 @@
-// @ts-nocheck
-// @ts-nocheck
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,8 +10,21 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Link } from "@tanstack/react-router";
+import type { ComponentProps, FormEventHandler } from "react";
 
-export function LoginForm({ className, onSubmit, error, submitting = false, ...props }) {
+type LoginFormProps = Omit<ComponentProps<"div">, "onSubmit"> & {
+  onSubmit: FormEventHandler<HTMLFormElement>;
+  error?: string | null;
+  submitting?: boolean;
+};
+
+export function LoginForm({
+  className,
+  onSubmit,
+  error,
+  submitting = false,
+  ...props
+}: LoginFormProps) {
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
       <Card>

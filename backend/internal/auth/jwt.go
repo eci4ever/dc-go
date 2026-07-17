@@ -13,7 +13,6 @@ type JWTService struct {
 }
 
 type Claims struct {
-	UserID string `json:"sub"`
 	jwt.RegisteredClaims
 }
 
@@ -28,7 +27,6 @@ func NewJWTService(secret, issuer, audience string) *JWTService {
 func (s *JWTService) Sign(userID string) (string, error) {
 	now := time.Now()
 	claims := Claims{
-		UserID: userID,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(now.Add(accessTokenTTL)),
 			IssuedAt:  jwt.NewNumericDate(now),

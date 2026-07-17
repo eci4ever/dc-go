@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { Link } from "@tanstack/react-router";
@@ -35,7 +34,7 @@ function LandingPage() {
         <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
           <div className="space-y-2">
             <Badge variant="secondary" className="w-fit rounded-full px-3 py-1">
-              DC Express Platform
+              DC-GO Platform
             </Badge>
             <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
               Your services, at a glance.

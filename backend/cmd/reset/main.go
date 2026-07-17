@@ -3,7 +3,7 @@ package main
 
 import (
 	"context"
-	"dc-express/pkg/database"
+	"github.com/eci4ever/dc-go/pkg/database"
 	"log"
 	"os"
 )

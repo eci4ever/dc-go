@@ -6,7 +6,13 @@ import path from 'path'
 
 export default defineConfig({
   plugins: [
-    TanStackRouterVite(),
+    TanStackRouterVite({
+      autoCodeSplitting: true,
+      routeTreeFileHeader: [
+        '/* eslint-disable */',
+        '// noinspection JSUnusedGlobalSymbols',
+      ],
+    }),
     react(),
     tailwindcss(),
   ],

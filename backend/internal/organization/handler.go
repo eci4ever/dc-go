@@ -3,8 +3,8 @@ package organization
 import (
 	"errors"
 
-	"dc-express/pkg/response"
-	"dc-express/pkg/validator"
+	"github.com/eci4ever/dc-go/pkg/response"
+	"github.com/eci4ever/dc-go/pkg/validator"
 
 	"github.com/gofiber/fiber/v2"
 )

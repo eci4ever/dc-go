@@ -3,11 +3,13 @@ package validator
 
 import (
 	"fmt"
+	"net/url"
 	"reflect"
+	"slices"
 	"strings"
 )
 
-// Validate supports the DTO tags used by this API: required, email, min, max and oneof.
+// Validate supports the DTO tags used by this API.
 func Validate(v any) error {
 	rv := reflect.Indirect(reflect.ValueOf(v))
 	rt := rv.Type()
@@ -28,12 +30,23 @@ func Validate(v any) error {
 		if value.IsValid() && value.Kind() == reflect.String {
 			text = value.String()
 		}
-		for _, rule := range strings.Split(tag, ",") {
+		rules := strings.Split(tag, ",")
+		if text == "" && slices.Contains(rules, "omitempty") {
+			continue
+		}
+		for _, rule := range rules {
 			switch {
+			case rule == "omitempty":
+				continue
 			case rule == "required" && strings.TrimSpace(text) == "":
 				return fmt.Errorf("%s is required", rt.Field(i).Name)
 			case rule == "email" && (!strings.Contains(text, "@") || strings.HasPrefix(text, "@") || strings.HasSuffix(text, "@")):
 				return fmt.Errorf("%s must be a valid email", rt.Field(i).Name)
+			case rule == "url":
+				parsed, err := url.ParseRequestURI(text)
+				if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") {
+					return fmt.Errorf("%s must be a valid URL", rt.Field(i).Name)
+				}
 			case strings.HasPrefix(rule, "min="):
 				var n int
 				fmt.Sscanf(strings.TrimPrefix(rule, "min="), "%d", &n)
@@ -54,6 +67,11 @@ func Validate(v any) error {
 				}
 				if !found {
 					return fmt.Errorf("%s has an invalid value", rt.Field(i).Name)
+				}
+			case strings.HasPrefix(rule, "nefield="):
+				other := rv.FieldByName(strings.TrimPrefix(rule, "nefield="))
+				if other.IsValid() && other.Kind() == reflect.String && text == other.String() {
+					return fmt.Errorf("%s must differ from %s", rt.Field(i).Name, strings.TrimPrefix(rule, "nefield="))
 				}
 			}
 		}

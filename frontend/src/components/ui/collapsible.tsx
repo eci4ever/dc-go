@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { Collapsible as CollapsiblePrimitive } from "radix-ui";
 
 function Collapsible({ ...props }) {

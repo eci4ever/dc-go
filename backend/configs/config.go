@@ -22,8 +22,8 @@ func Load() (Config, error) {
 		Port:         getEnv("PORT", "3000"),
 		DatabaseURL:  os.Getenv("DATABASE_URL"),
 		JWTSecret:    os.Getenv("JWT_SECRET"),
-		JWTIssuer:    getEnv("JWT_ISSUER", "dc-express"),
-		JWTAudience:  getEnv("JWT_AUDIENCE", "dc-express"),
+		JWTIssuer:    getEnv("JWT_ISSUER", "dc-go"),
+		JWTAudience:  getEnv("JWT_AUDIENCE", "dc-go"),
 		Environment:  environment,
 		CookieSecure: environment == "production",
 	}

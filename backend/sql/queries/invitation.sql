@@ -1,6 +1,9 @@
 -- name: GetInvitation :one
 SELECT * FROM "invitation" WHERE id = $1;
 
+-- name: GetInvitationForUpdate :one
+SELECT * FROM "invitation" WHERE id = $1 FOR UPDATE;
+
 -- name: ListInvitationsByOrganizationID :many
 SELECT * FROM "invitation" WHERE organization_id = $1 ORDER BY created_at DESC;
 

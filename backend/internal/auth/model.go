@@ -3,7 +3,7 @@ package auth
 import (
 	"time"
 
-	"dc-express/internal/user"
+	"github.com/eci4ever/dc-go/internal/user"
 )
 
 type AuthUser struct {

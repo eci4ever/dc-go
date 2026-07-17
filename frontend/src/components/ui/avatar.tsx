@@ -1,4 +1,3 @@
-// @ts-nocheck
 import * as React from "react";
 import { Avatar as AvatarPrimitive } from "radix-ui";
 
@@ -48,7 +47,7 @@ function AvatarFallback({
   );
 }
 
-function AvatarBadge({ className, ...props }) {
+function AvatarBadge({ className, ...props }: React.ComponentProps<"span">) {
   return (
     <span
       data-slot="avatar-badge"
@@ -64,7 +63,7 @@ function AvatarBadge({ className, ...props }) {
   );
 }
 
-function AvatarGroup({ className, ...props }) {
+function AvatarGroup({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="avatar-group"
@@ -77,7 +76,7 @@ function AvatarGroup({ className, ...props }) {
   );
 }
 
-function AvatarGroupCount({ className, ...props }) {
+function AvatarGroupCount({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="avatar-group-count"

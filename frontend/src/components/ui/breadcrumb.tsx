@@ -1,4 +1,3 @@
-// @ts-nocheck
 import * as React from "react";
 import { Slot } from "radix-ui";
 
@@ -77,7 +76,7 @@ function BreadcrumbSeparator({ children, className, ...props }: React.ComponentP
   );
 }
 
-function BreadcrumbEllipsis({ className, ...props }) {
+function BreadcrumbEllipsis({ className, ...props }: React.ComponentProps<"span">) {
   return (
     <span
       data-slot="breadcrumb-ellipsis"
