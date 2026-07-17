@@ -12,6 +12,7 @@ import {
   ShieldPlusIcon,
   SmartphoneIcon,
   TerminalIcon,
+  UserRoundIcon,
 } from "lucide-react";
 
 import {
@@ -153,31 +154,53 @@ function AccountPage() {
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Account</h1>
-        <p className="text-sm text-muted-foreground">
+    <div className="mx-auto flex w-full max-w-4xl flex-col gap-8">
+      <div className="flex flex-col gap-2 border-b pb-6">
+        <Badge variant="outline" className="w-fit">
+          Account settings
+        </Badge>
+        <h1 className="text-3xl font-semibold tracking-tight">Your account</h1>
+        <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
           Manage your personal details and account security.
         </p>
       </div>
 
-      <Card>
+      <Card className="overflow-hidden shadow-sm">
         <CardHeader>
-          <CardTitle>Profile information</CardTitle>
-          <CardDescription>
-            Update how your profile appears throughout the application.
-          </CardDescription>
+          <div className="flex items-start gap-3">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <UserRoundIcon className="size-5" />
+            </div>
+            <div className="flex flex-col gap-1">
+              <CardTitle>Profile information</CardTitle>
+              <CardDescription>
+                Update how your profile appears throughout the application.
+              </CardDescription>
+            </div>
+          </div>
         </CardHeader>
-        <form onSubmit={submitProfile}>
-          <CardContent>
-            <div className="grid gap-6 md:grid-cols-[auto_minmax(0,1fr)]">
-              <Avatar className="rounded-xl data-[size=lg]:size-20" size="lg">
-                <AvatarImage src={image.trim() || undefined} alt={name || user.name} />
-                <AvatarFallback className="rounded-xl text-lg">
-                  {(name || user.name).slice(0, 2).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              <FieldGroup className="gap-5">
+        <form className="flex flex-col gap-(--card-spacing)" onSubmit={submitProfile}>
+          <CardContent className="flex flex-col gap-6">
+            <div className="flex flex-col gap-4 rounded-xl border bg-muted/30 p-4 sm:flex-row sm:items-center">
+              <div className="flex min-w-0 flex-1 items-center gap-4">
+                <Avatar className="rounded-xl data-[size=lg]:size-16" size="lg">
+                  <AvatarImage src={image.trim() || undefined} alt={name || user.name} />
+                  <AvatarFallback className="rounded-xl text-base font-medium">
+                    {(name || user.name).slice(0, 2).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-medium">{name || user.name}</p>
+                  <p className="truncate text-sm text-muted-foreground">{user.email}</p>
+                </div>
+              </div>
+              <Badge className="w-fit" variant={user.emailVerified ? "secondary" : "outline"}>
+                {user.emailVerified ? <BadgeCheckIcon /> : <CircleAlertIcon />}
+                {user.emailVerified ? "Verified" : "Unverified"}
+              </Badge>
+            </div>
+            <div className="max-w-2xl">
+              <FieldGroup>
                 <Field>
                   <FieldLabel htmlFor="account-name">Name</FieldLabel>
                   <Input
@@ -208,13 +231,7 @@ function AccountPage() {
                   <FieldDescription>Use a secure, publicly accessible image URL.</FieldDescription>
                 </Field>
                 <Field data-disabled>
-                  <div className="flex items-center justify-between gap-3">
-                    <FieldLabel htmlFor="account-email">Email address</FieldLabel>
-                    <Badge variant={user.emailVerified ? "secondary" : "outline"}>
-                      {user.emailVerified ? <BadgeCheckIcon /> : <CircleAlertIcon />}
-                      {user.emailVerified ? "Verified" : "Unverified"}
-                    </Badge>
-                  </div>
+                  <FieldLabel htmlFor="account-email">Email address</FieldLabel>
                   <Input id="account-email" value={user.email} disabled readOnly />
                   <FieldDescription>Your email address cannot be changed.</FieldDescription>
                 </Field>
@@ -235,7 +252,7 @@ function AccountPage() {
               </Alert>
             )}
           </CardContent>
-          <CardFooter className="justify-end">
+          <CardFooter className="justify-end border-t bg-muted/20">
             <Button type="submit" disabled={updateProfile.isPending || !name.trim()}>
               {updateProfile.isPending && <Spinner data-icon="inline-start" />}
               Save changes
@@ -244,22 +261,24 @@ function AccountPage() {
         </form>
       </Card>
 
-      <div className="grid items-stretch gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-3">
-              <div className="flex size-10 items-center justify-center rounded-lg bg-muted">
-                <KeyRoundIcon />
-              </div>
-              <div>
-                <CardTitle>Change password</CardTitle>
-                <CardDescription>Use at least 8 characters for your new password.</CardDescription>
-              </div>
+      <Card className="overflow-hidden shadow-sm">
+        <CardHeader>
+          <div className="flex items-start gap-3">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <KeyRoundIcon className="size-5" />
             </div>
-          </CardHeader>
-          <form className="flex flex-1 flex-col" onSubmit={submitPassword}>
-            <CardContent className="flex-1">
-              <FieldGroup className="gap-5">
+            <div className="flex flex-col gap-1">
+              <CardTitle>Change password</CardTitle>
+              <CardDescription>
+                Choose a strong password that you do not use anywhere else.
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <form className="flex flex-col gap-(--card-spacing)" onSubmit={submitPassword}>
+          <CardContent>
+            <div className="max-w-2xl">
+              <FieldGroup>
                 <Field>
                   <FieldLabel htmlFor="current-password">Current password</FieldLabel>
                   <Input
@@ -300,79 +319,87 @@ function AccountPage() {
                   {passwordError && <FieldError>{passwordError}</FieldError>}
                 </Field>
               </FieldGroup>
-              {changePassword.error && (
-                <Alert variant="destructive" className="mt-5">
-                  <CircleAlertIcon />
-                  <AlertTitle>Password change failed</AlertTitle>
-                  <AlertDescription>{changePassword.error.message}</AlertDescription>
-                </Alert>
-              )}
-              {changePassword.isSuccess && (
-                <Alert className="mt-5">
-                  <CircleCheckIcon />
-                  <AlertTitle>Password changed</AlertTitle>
-                  <AlertDescription>Your new password is active.</AlertDescription>
-                </Alert>
-              )}
-            </CardContent>
-            <CardFooter className="justify-end">
-              <Button type="submit" disabled={changePassword.isPending}>
-                {changePassword.isPending && <Spinner data-icon="inline-start" />}
-                Update password
-              </Button>
-            </CardFooter>
-          </form>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-3">
-              <div className="flex size-10 items-center justify-center rounded-lg bg-muted">
-                <ShieldCheckIcon />
-              </div>
-              <div>
-                <CardTitle>Two-factor authentication</CardTitle>
-                <CardDescription>Add an extra layer of protection to your account.</CardDescription>
-              </div>
             </div>
-          </CardHeader>
-          <CardContent className="flex flex-1 flex-col gap-4">
-            <div className="flex items-center justify-between gap-4 rounded-lg bg-muted/50 p-4">
-              <div>
-                <p className="font-medium">Authenticator app</p>
-                <p className="text-sm text-muted-foreground">
-                  {user.twoFactorEnabled
-                    ? "Two-factor authentication is active."
-                    : "Two-factor authentication is not configured."}
-                </p>
-              </div>
-              <Badge variant={user.twoFactorEnabled ? "secondary" : "outline"}>
-                {user.twoFactorEnabled ? "Enabled" : "Disabled"}
-              </Badge>
-            </div>
-            <Alert>
-              <ShieldPlusIcon />
-              <AlertTitle>Enrollment coming soon</AlertTitle>
-              <AlertDescription>
-                Secure authenticator enrollment and recovery codes are not available yet.
-              </AlertDescription>
-            </Alert>
+            {changePassword.error && (
+              <Alert variant="destructive" className="mt-5">
+                <CircleAlertIcon />
+                <AlertTitle>Password change failed</AlertTitle>
+                <AlertDescription>{changePassword.error.message}</AlertDescription>
+              </Alert>
+            )}
+            {changePassword.isSuccess && (
+              <Alert className="mt-5">
+                <CircleCheckIcon />
+                <AlertTitle>Password changed</AlertTitle>
+                <AlertDescription>Your new password is active.</AlertDescription>
+              </Alert>
+            )}
           </CardContent>
-          <CardFooter className="justify-end">
-            <Button variant="outline" disabled>
-              <ShieldPlusIcon data-icon="inline-start" />
-              Set up two-factor
+          <CardFooter className="justify-end border-t bg-muted/20">
+            <Button type="submit" disabled={changePassword.isPending}>
+              {changePassword.isPending && <Spinner data-icon="inline-start" />}
+              Update password
             </Button>
           </CardFooter>
-        </Card>
-      </div>
+        </form>
+      </Card>
 
-      <Card>
+      <Card className="overflow-hidden shadow-sm">
         <CardHeader>
-          <CardTitle>Active sessions</CardTitle>
-          <CardDescription>
-            Review devices signed in to your account and revoke any session you do not recognize.
-          </CardDescription>
+          <div className="flex items-start gap-3">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <ShieldCheckIcon className="size-5" />
+            </div>
+            <div className="flex flex-col gap-1">
+              <CardTitle>Two-factor authentication</CardTitle>
+              <CardDescription>Add an extra layer of protection to your account.</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <div className="flex flex-col gap-3 rounded-xl border bg-muted/30 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-1">
+              <p className="font-medium">Authenticator app</p>
+              <p className="text-sm text-muted-foreground">
+                {user.twoFactorEnabled
+                  ? "Two-factor authentication is active."
+                  : "Two-factor authentication is not configured."}
+              </p>
+            </div>
+            <Badge className="w-fit" variant={user.twoFactorEnabled ? "secondary" : "outline"}>
+              {user.twoFactorEnabled ? "Enabled" : "Disabled"}
+            </Badge>
+          </div>
+          <Alert>
+            <ShieldPlusIcon />
+            <AlertTitle>Enrollment coming soon</AlertTitle>
+            <AlertDescription>
+              Secure authenticator enrollment and recovery codes are not available yet.
+            </AlertDescription>
+          </Alert>
+        </CardContent>
+        <CardFooter className="justify-end border-t bg-muted/20">
+          <Button variant="outline" disabled>
+            <ShieldPlusIcon data-icon="inline-start" />
+            Set up two-factor
+          </Button>
+        </CardFooter>
+      </Card>
+
+      <Card className="overflow-hidden shadow-sm">
+        <CardHeader>
+          <div className="flex items-start gap-3">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <LaptopIcon className="size-5" />
+            </div>
+            <div className="flex flex-col gap-1">
+              <CardTitle>Active sessions</CardTitle>
+              <CardDescription>
+                Review devices signed in to your account and revoke any session you do not
+                recognize.
+              </CardDescription>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           {sessions.isPending ? (
