@@ -1,14 +1,17 @@
 import type { ComponentProps } from "react";
+import { Link } from "@tanstack/react-router";
 import { Building2Icon, GraduationCapIcon, LayoutDashboardIcon, UsersIcon } from "lucide-react";
 
 import { NavMain } from "@/components/nav-main";
 import { NavUser } from "@/components/nav-user";
-import { OrganizationSwitcher } from "@/components/team-switcher";
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
   SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar";
 import type { SessionData, User } from "@/lib/api";
@@ -52,7 +55,27 @@ export function AppSidebar({ user, session, onLogout, ...props }: AppSidebarProp
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
-        <OrganizationSwitcher session={session} />
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton size="lg" tooltip="ADTEC JTM" asChild>
+              <Link to="/dashboard" aria-label="ADTEC JTM dashboard">
+                <div className="flex aspect-square size-8 shrink-0 items-center justify-center rounded-md bg-white p-1">
+                  <img
+                    src="/branding/tms-mark.png"
+                    alt="TMS"
+                    className="h-auto w-full object-contain"
+                  />
+                </div>
+                <div className="grid min-w-0 flex-1 text-left leading-tight">
+                  <span className="truncate font-semibold">ADTEC JTM</span>
+                  <span className="truncate text-xs text-muted-foreground">
+                    Training Management System
+                  </span>
+                </div>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
         <NavMain label="Overview" items={overviewItems} />
