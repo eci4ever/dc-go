@@ -55,6 +55,71 @@ interface ManagedSession {
   userAgent: string | null;
   current: boolean;
 }
+interface AcademicStudent {
+  id: string;
+  organizationId: string;
+  studentNo: string;
+  name: string;
+  email: string | null;
+  program: string;
+  intake: string;
+  status: "active" | "graduated" | "inactive";
+  createdAt: string;
+}
+interface AcademicSemester {
+  id: string;
+  organizationId: string;
+  code: string;
+  name: string;
+  academicYear: number;
+  sequence: number;
+  status: "planned" | "active" | "closed";
+}
+interface AcademicCourse {
+  id: string;
+  organizationId: string;
+  code: string;
+  name: string;
+  credits: number;
+  active: boolean;
+}
+interface GradeScale {
+  letter: string;
+  minScore: number;
+  maxScore: number;
+  gradePoint: number;
+  passing: boolean;
+}
+interface AcademicResult {
+  id: string;
+  studentId: string;
+  semesterId: string;
+  courseId: string;
+  courseCode?: string;
+  courseName?: string;
+  score: number;
+  grade: string;
+  gradePoint: number;
+  credits: number;
+  qualityPoint: number;
+}
+interface SemesterResult {
+  semesterId: string;
+  semesterCode: string;
+  semesterName: string;
+  academicYear: number;
+  sequence: number;
+  results: AcademicResult[];
+  totalCredits: number;
+  totalPoints: number;
+  gpa: number;
+  cgpa: number;
+}
+interface Transcript {
+  student: AcademicStudent;
+  semesters: SemesterResult[];
+  cgpa: number;
+}
 
 function csrfToken() {
   return document.cookie
@@ -143,6 +208,24 @@ export const listSessions = () => request<ManagedSession[]>("/auth/sessions");
 export const revokeSession = (id: string) =>
   request<void>(`/auth/sessions/${id}`, { method: "DELETE" });
 export const listOrganizations = () => request<Organization[]>("/organizations");
+export const listAdminOrganizations = () => request<Organization[]>("/admin/organizations");
+export const createAdminOrganization = (name: string, slug: string) =>
+  request<Organization>("/admin/organizations", {
+    method: "POST",
+    body: JSON.stringify({ name, slug }),
+  });
+export const updateAdminOrganization = (id: string, name: string, slug: string) =>
+  request<Organization>(`/admin/organizations/${id}`, {
+    method: "PUT",
+    body: JSON.stringify({ name, slug }),
+  });
+export const uploadAdminOrganizationLogo = (id: string, file: File) => {
+  const body = new FormData();
+  body.append("logo", file);
+  return request<Organization>(`/admin/organizations/${id}/logo`, { method: "PUT", body });
+};
+export const deleteAdminOrganization = (id: string) =>
+  request<void>(`/admin/organizations/${id}`, { method: "DELETE" });
 export const setActiveOrganization = (organizationId: string) =>
   request<SessionData>("/auth/session/active-organization", {
     method: "PUT",
@@ -154,6 +237,48 @@ export const updateUserRole = (id: string, role: UserRole) =>
     method: "PUT",
     body: JSON.stringify({ role }),
   });
+export const listAcademicStudents = (organizationId: string) =>
+  request<AcademicStudent[]>(`/organizations/${organizationId}/academic/students`);
+export const createAcademicStudent = (
+  organizationId: string,
+  data: Pick<AcademicStudent, "studentNo" | "name" | "program" | "intake"> & { email: string },
+) =>
+  request<AcademicStudent>(`/organizations/${organizationId}/academic/students`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+export const listAcademicSemesters = (organizationId: string) =>
+  request<AcademicSemester[]>(`/organizations/${organizationId}/academic/semesters`);
+export const createAcademicSemester = (
+  organizationId: string,
+  data: Omit<AcademicSemester, "id" | "organizationId">,
+) =>
+  request<AcademicSemester>(`/organizations/${organizationId}/academic/semesters`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+export const listAcademicCourses = (organizationId: string) =>
+  request<AcademicCourse[]>(`/organizations/${organizationId}/academic/courses`);
+export const createAcademicCourse = (
+  organizationId: string,
+  data: Pick<AcademicCourse, "code" | "name" | "credits">,
+) =>
+  request<AcademicCourse>(`/organizations/${organizationId}/academic/courses`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+export const listGradeScale = (organizationId: string) =>
+  request<GradeScale[]>(`/organizations/${organizationId}/academic/grade-scale`);
+export const upsertAcademicResult = (
+  organizationId: string,
+  data: { studentId: string; semesterId: string; courseId: string; score: number },
+) =>
+  request<AcademicResult>(`/organizations/${organizationId}/academic/results`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+export const getTranscript = (organizationId: string, studentId: string) =>
+  request<Transcript>(`/organizations/${organizationId}/academic/students/${studentId}/transcript`);
 export type {
   UserRole,
   OrganizationRole,
@@ -163,4 +288,11 @@ export type {
   ManagedSession,
   Organization,
   ApiResponse,
+  AcademicStudent,
+  AcademicSemester,
+  AcademicCourse,
+  GradeScale,
+  AcademicResult,
+  SemesterResult,
+  Transcript,
 };

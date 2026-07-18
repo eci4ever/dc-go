@@ -12,7 +12,7 @@ import (
 )
 
 const createOrganization = `-- name: CreateOrganization :one
-INSERT INTO "organization" (id, name, slug, logo, metadata) VALUES ($1, $2, $3, $4, $5) RETURNING id, name, slug, logo, created_at, metadata
+INSERT INTO "organization" (id, name, slug, logo, metadata) VALUES ($1, $2, $3, $4, $5) RETURNING id, name, slug, logo, created_at, metadata, logo_key, logo_content_type, logo_updated_at
 `
 
 type CreateOrganizationParams struct {
@@ -39,6 +39,9 @@ func (q *Queries) CreateOrganization(ctx context.Context, arg CreateOrganization
 		&i.Logo,
 		&i.CreatedAt,
 		&i.Metadata,
+		&i.LogoKey,
+		&i.LogoContentType,
+		&i.LogoUpdatedAt,
 	)
 	return i, err
 }
@@ -53,7 +56,7 @@ func (q *Queries) DeleteOrganization(ctx context.Context, id string) error {
 }
 
 const getOrganization = `-- name: GetOrganization :one
-SELECT id, name, slug, logo, created_at, metadata FROM "organization" WHERE id = $1
+SELECT id, name, slug, logo, created_at, metadata, logo_key, logo_content_type, logo_updated_at FROM "organization" WHERE id = $1
 `
 
 func (q *Queries) GetOrganization(ctx context.Context, id string) (Organization, error) {
@@ -66,12 +69,15 @@ func (q *Queries) GetOrganization(ctx context.Context, id string) (Organization,
 		&i.Logo,
 		&i.CreatedAt,
 		&i.Metadata,
+		&i.LogoKey,
+		&i.LogoContentType,
+		&i.LogoUpdatedAt,
 	)
 	return i, err
 }
 
 const getOrganizationBySlug = `-- name: GetOrganizationBySlug :one
-SELECT id, name, slug, logo, created_at, metadata FROM "organization" WHERE slug = $1
+SELECT id, name, slug, logo, created_at, metadata, logo_key, logo_content_type, logo_updated_at FROM "organization" WHERE slug = $1
 `
 
 func (q *Queries) GetOrganizationBySlug(ctx context.Context, slug string) (Organization, error) {
@@ -84,12 +90,49 @@ func (q *Queries) GetOrganizationBySlug(ctx context.Context, slug string) (Organ
 		&i.Logo,
 		&i.CreatedAt,
 		&i.Metadata,
+		&i.LogoKey,
+		&i.LogoContentType,
+		&i.LogoUpdatedAt,
 	)
 	return i, err
 }
 
+const listOrganizations = `-- name: ListOrganizations :many
+SELECT id, name, slug, logo, created_at, metadata, logo_key, logo_content_type, logo_updated_at FROM organization ORDER BY name
+`
+
+func (q *Queries) ListOrganizations(ctx context.Context) ([]Organization, error) {
+	rows, err := q.db.Query(ctx, listOrganizations)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Organization{}
+	for rows.Next() {
+		var i Organization
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Slug,
+			&i.Logo,
+			&i.CreatedAt,
+			&i.Metadata,
+			&i.LogoKey,
+			&i.LogoContentType,
+			&i.LogoUpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listOrganizationsByUserID = `-- name: ListOrganizationsByUserID :many
-SELECT o.id, o.name, o.slug, o.logo, o.created_at, o.metadata FROM "organization" o
+SELECT o.id, o.name, o.slug, o.logo, o.created_at, o.metadata, o.logo_key, o.logo_content_type, o.logo_updated_at FROM "organization" o
 JOIN "member" m ON m.organization_id = o.id
 WHERE m.user_id = $1 ORDER BY o.name
 `
@@ -110,6 +153,9 @@ func (q *Queries) ListOrganizationsByUserID(ctx context.Context, userID string) 
 			&i.Logo,
 			&i.CreatedAt,
 			&i.Metadata,
+			&i.LogoKey,
+			&i.LogoContentType,
+			&i.LogoUpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -122,7 +168,7 @@ func (q *Queries) ListOrganizationsByUserID(ctx context.Context, userID string) 
 }
 
 const updateOrganization = `-- name: UpdateOrganization :one
-UPDATE "organization" SET name=$2, slug=$3, logo=$4, metadata=$5 WHERE id=$1 RETURNING id, name, slug, logo, created_at, metadata
+UPDATE "organization" SET name=$2, slug=$3, logo=COALESCE($4, logo), metadata=$5 WHERE id=$1 RETURNING id, name, slug, logo, created_at, metadata, logo_key, logo_content_type, logo_updated_at
 `
 
 type UpdateOrganizationParams struct {
@@ -149,6 +195,47 @@ func (q *Queries) UpdateOrganization(ctx context.Context, arg UpdateOrganization
 		&i.Logo,
 		&i.CreatedAt,
 		&i.Metadata,
+		&i.LogoKey,
+		&i.LogoContentType,
+		&i.LogoUpdatedAt,
+	)
+	return i, err
+}
+
+const updateOrganizationLogo = `-- name: UpdateOrganizationLogo :one
+UPDATE "organization"
+SET logo=$2, logo_key=$3, logo_content_type=$4, logo_updated_at=$5
+WHERE id=$1
+RETURNING id, name, slug, logo, created_at, metadata, logo_key, logo_content_type, logo_updated_at
+`
+
+type UpdateOrganizationLogoParams struct {
+	ID              string             `json:"id"`
+	Logo            pgtype.Text        `json:"logo"`
+	LogoKey         pgtype.Text        `json:"logo_key"`
+	LogoContentType pgtype.Text        `json:"logo_content_type"`
+	LogoUpdatedAt   pgtype.Timestamptz `json:"logo_updated_at"`
+}
+
+func (q *Queries) UpdateOrganizationLogo(ctx context.Context, arg UpdateOrganizationLogoParams) (Organization, error) {
+	row := q.db.QueryRow(ctx, updateOrganizationLogo,
+		arg.ID,
+		arg.Logo,
+		arg.LogoKey,
+		arg.LogoContentType,
+		arg.LogoUpdatedAt,
+	)
+	var i Organization
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Slug,
+		&i.Logo,
+		&i.CreatedAt,
+		&i.Metadata,
+		&i.LogoKey,
+		&i.LogoContentType,
+		&i.LogoUpdatedAt,
 	)
 	return i, err
 }

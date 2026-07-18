@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/eci4ever/dc-go/configs"
+	"github.com/eci4ever/dc-go/internal/academic"
 	"github.com/eci4ever/dc-go/internal/auth"
 	"github.com/eci4ever/dc-go/internal/organization"
 	"github.com/eci4ever/dc-go/internal/storage"
@@ -49,7 +50,7 @@ func main() {
 	slog.Info("connected to Redis")
 
 	database.RunMigrations(ctx, pool)
-	avatarStore, err := storage.NewS3Store(ctx, storage.Config{
+	objectStore, err := storage.NewS3Store(ctx, storage.Config{
 		Endpoint:       cfg.S3Endpoint,
 		AccessKey:      cfg.S3AccessKey,
 		SecretKey:      cfg.S3SecretKey,
@@ -68,21 +69,25 @@ func main() {
 	authRepo := auth.NewRepository(pool)
 	orgRepo := organization.NewRepository(pool)
 	teamRepo := team.NewRepository(pool)
+	// Academic records are scoped to the active institute organization.
+	academicRepo := academic.NewRepository(pool)
 
 	// JWT
 	jwtSvc := auth.NewJWTService(cfg.JWTSecret, cfg.JWTIssuer, cfg.JWTAudience)
 
 	// Services
-	userSvc := user.NewService(userRepo, avatarStore)
+	userSvc := user.NewService(userRepo, objectStore)
 	authSvc := auth.NewService(authRepo, jwtSvc, userRepo)
-	orgSvc := organization.NewService(orgRepo)
+	orgSvc := organization.NewService(orgRepo, objectStore)
 	teamSvc := team.NewService(teamRepo)
+	academicSvc := academic.NewService(academicRepo)
 
 	// Handlers
 	userHdl := user.NewHandler(userSvc)
 	authHdl := auth.NewHandler(authSvc, cfg.CookieSecure)
 	orgHdl := organization.NewHandler(orgSvc)
 	teamHdl := team.NewHandler(teamSvc)
+	academicHdl := academic.NewHandler(academicSvc)
 
 	app := fiber.New(fiber.Config{
 		DisableStartupMessage: false,
@@ -135,7 +140,9 @@ func main() {
 	user.RegisterRoutes(v1, userHdl, authMw, csrfMw, adminMw)
 	auth.RegisterRoutes(v1, authHdl, authMw, csrfMw, authLimits)
 	organization.RegisterRoutes(v1, orgHdl, invitationLimit, authMw, csrfMw)
+	organization.RegisterAdminRoutes(v1, orgHdl, authMw, csrfMw, adminMw)
 	team.RegisterRoutes(v1, teamHdl, authMw, csrfMw)
+	academic.RegisterRoutes(v1, academicHdl, authMw, csrfMw)
 
 	staticDir := os.Getenv("STATIC_DIR")
 	if staticDir == "" {

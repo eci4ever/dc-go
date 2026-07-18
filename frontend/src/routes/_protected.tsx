@@ -25,8 +25,18 @@ function ProtectedLayout() {
   if (!user || !session) return null;
 
   const isUserManagement = pathname.startsWith("/admin/users");
+  const isOrganizationManagement = pathname.startsWith("/admin/organizations");
   const isAccount = pathname.startsWith("/account");
-  const pageName = isUserManagement ? "Users" : isAccount ? "Account" : "Dashboard";
+  const isAcademic = pathname.startsWith("/academic");
+  const pageName = isOrganizationManagement
+    ? "Organizations"
+    : isUserManagement
+      ? "Users"
+      : isAccount
+        ? "Account"
+        : isAcademic
+          ? "Academic"
+          : "Dashboard";
 
   return (
     <SidebarProvider className="h-svh min-h-0 overflow-hidden">

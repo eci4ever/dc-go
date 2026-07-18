@@ -122,8 +122,13 @@ func (q *Queries) GetSessionByToken(ctx context.Context, token string) (Session,
 }
 
 const getSessionContextByToken = `-- name: GetSessionContextByToken :one
-SELECT s.id, s.expires_at, s.token, s.created_at, s.updated_at, s.ip_address, s.user_agent, s.user_id, s.impersonated_by, s.active_organization_id, s.active_team_id, m.role AS active_organization_role
+SELECT s.id, s.expires_at, s.token, s.created_at, s.updated_at, s.ip_address, s.user_agent, s.user_id, s.impersonated_by, s.active_organization_id, s.active_team_id, COALESCE(
+  m.role,
+  CASE WHEN s.active_organization_id IS NOT NULL AND u.role = 'admin' THEN 'admin' END,
+  ''
+) AS active_organization_role
 FROM "session" s
+JOIN "user" u ON u.id = s.user_id
 LEFT JOIN "member" m
   ON m.organization_id = s.active_organization_id
  AND m.user_id = s.user_id
@@ -142,7 +147,7 @@ type GetSessionContextByTokenRow struct {
 	ImpersonatedBy         pgtype.Text        `json:"impersonated_by"`
 	ActiveOrganizationID   pgtype.Text        `json:"active_organization_id"`
 	ActiveTeamID           pgtype.Text        `json:"active_team_id"`
-	ActiveOrganizationRole pgtype.Text        `json:"active_organization_role"`
+	ActiveOrganizationRole string             `json:"active_organization_role"`
 }
 
 func (q *Queries) GetSessionContextByToken(ctx context.Context, token string) (GetSessionContextByTokenRow, error) {
@@ -208,8 +213,18 @@ WHERE s.token = $1
   AND s.user_id = $3
   AND s.expires_at > NOW()
   AND EXISTS (
-      SELECT 1 FROM "member" m
-      WHERE m.organization_id = $2 AND m.user_id = $3
+      SELECT 1 FROM "organization" o
+      WHERE o.id = $2
+        AND (
+          EXISTS (
+            SELECT 1 FROM "member" m
+            WHERE m.organization_id = o.id AND m.user_id = $3
+          )
+          OR EXISTS (
+            SELECT 1 FROM "user" u
+            WHERE u.id = $3 AND u.role = 'admin'
+          )
+        )
   )
 RETURNING id, expires_at, token, created_at, updated_at, ip_address, user_agent, user_id, impersonated_by, active_organization_id, active_team_id
 `

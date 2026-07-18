@@ -2,6 +2,7 @@ package organization
 
 import (
 	"errors"
+	"strings"
 
 	"github.com/eci4ever/dc-go/pkg/response"
 	"github.com/eci4ever/dc-go/pkg/validator"
@@ -57,6 +58,115 @@ func (h *Handler) List(c *fiber.Ctx) error {
 		return c.Status(500).JSON(response.Error("internal server error"))
 	}
 	return c.JSON(response.OK(orgs))
+}
+
+func (h *Handler) AdminList(c *fiber.Ctx) error {
+	orgs, err := h.svc.AdminList(c.UserContext())
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(response.Error("internal server error"))
+	}
+	return c.JSON(response.OK(orgs))
+}
+
+func (h *Handler) AdminCreate(c *fiber.Ctx) error {
+	var req CreateOrgRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(response.Error("invalid request body"))
+	}
+	if err := validator.Validate(req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(response.Error(err.Error()))
+	}
+	org, err := h.svc.AdminCreate(c.UserContext(), req, c.Locals("user_id").(string))
+	if err != nil {
+		if errors.Is(err, ErrSlugExists) {
+			return c.Status(fiber.StatusConflict).JSON(response.Error("slug already exists"))
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(response.Error("internal server error"))
+	}
+	return c.Status(fiber.StatusCreated).JSON(response.Created(org))
+}
+
+func (h *Handler) AdminUpdate(c *fiber.Ctx) error {
+	var req UpdateOrgRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(response.Error("invalid request body"))
+	}
+	if err := validator.Validate(req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(response.Error(err.Error()))
+	}
+	org, err := h.svc.AdminUpdate(c.UserContext(), c.Params("id"), req)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return c.Status(fiber.StatusNotFound).JSON(response.NotFound())
+		}
+		if errors.Is(err, ErrSlugExists) {
+			return c.Status(fiber.StatusConflict).JSON(response.Error("slug already exists"))
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(response.Error("internal server error"))
+	}
+	return c.JSON(response.OK(org))
+}
+
+func (h *Handler) AdminUploadLogo(c *fiber.Ctx) error {
+	header, err := c.FormFile("logo")
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(response.Error("logo file is required"))
+	}
+	file, err := header.Open()
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(response.Error("unable to read logo"))
+	}
+	defer file.Close()
+
+	org, err := h.svc.UploadLogo(c.UserContext(), c.Params("id"), file, header.Size)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrLogoTooLarge):
+			return c.Status(fiber.StatusRequestEntityTooLarge).JSON(response.Error(err.Error()))
+		case errors.Is(err, ErrInvalidLogo):
+			return c.Status(fiber.StatusBadRequest).JSON(response.Error(err.Error()))
+		case errors.Is(err, ErrNotFound):
+			return c.Status(fiber.StatusNotFound).JSON(response.NotFound())
+		case errors.Is(err, ErrLogoUnavailable):
+			return c.Status(fiber.StatusServiceUnavailable).JSON(response.Error("logo storage is unavailable"))
+		default:
+			return c.Status(fiber.StatusInternalServerError).JSON(response.Error("internal server error"))
+		}
+	}
+	return c.JSON(response.OK(org))
+}
+
+func (h *Handler) GetLogo(c *fiber.Ctx) error {
+	logo, err := h.svc.GetLogo(c.UserContext(), c.Params("id"))
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrNotFound), errors.Is(err, ErrNoLogo):
+			return c.Status(fiber.StatusNotFound).JSON(response.NotFound())
+		case errors.Is(err, ErrLogoUnavailable):
+			return c.Status(fiber.StatusServiceUnavailable).JSON(response.Error("logo storage is unavailable"))
+		default:
+			return c.Status(fiber.StatusInternalServerError).JSON(response.Error("internal server error"))
+		}
+	}
+	if logo.ETag != "" {
+		c.Set(fiber.HeaderETag, logo.ETag)
+		if strings.TrimSpace(c.Get(fiber.HeaderIfNoneMatch)) == logo.ETag {
+			return c.SendStatus(fiber.StatusNotModified)
+		}
+	}
+	c.Set(fiber.HeaderContentType, logo.ContentType)
+	c.Set(fiber.HeaderCacheControl, "private, max-age=86400")
+	return c.Send(logo.Data)
+}
+
+func (h *Handler) AdminDelete(c *fiber.Ctx) error {
+	if err := h.svc.AdminDelete(c.UserContext(), c.Params("id")); err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return c.Status(fiber.StatusNotFound).JSON(response.NotFound())
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(response.Error("internal server error"))
+	}
+	return c.SendStatus(fiber.StatusNoContent)
 }
 
 func (h *Handler) Update(c *fiber.Ctx) error {

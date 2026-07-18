@@ -89,6 +89,26 @@ func (r *Repository) ListByUserID(ctx context.Context, userID string) ([]Organiz
 	return orgs, nil
 }
 
+func (r *Repository) ListAll(ctx context.Context) ([]Organization, error) {
+	rows, err := r.q.ListOrganizations(ctx)
+	if err != nil {
+		return nil, err
+	}
+	orgs := make([]Organization, len(rows))
+	for i, org := range rows {
+		orgs[i] = mapOrg(org)
+	}
+	return orgs, nil
+}
+
+func (r *Repository) UserRole(ctx context.Context, userID string) (string, error) {
+	u, err := r.q.GetUser(ctx, userID)
+	if err != nil {
+		return "", err
+	}
+	return u.Role, nil
+}
+
 func (r *Repository) Update(ctx context.Context, id, name, slug string, logo *string) (Organization, error) {
 	org, err := r.q.UpdateOrganization(ctx, db.UpdateOrganizationParams{
 		ID:       id,
@@ -96,6 +116,27 @@ func (r *Repository) Update(ctx context.Context, id, name, slug string, logo *st
 		Slug:     slug,
 		Logo:     pgtext(logo),
 		Metadata: pgtype.Text{Valid: false},
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Organization{}, ErrNotFound
+		}
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return Organization{}, ErrSlugExists
+		}
+		return Organization{}, err
+	}
+	return mapOrg(org), nil
+}
+
+func (r *Repository) UpdateLogo(ctx context.Context, id, logoURL, key, contentType string, updatedAt time.Time) (Organization, error) {
+	org, err := r.q.UpdateOrganizationLogo(ctx, db.UpdateOrganizationLogoParams{
+		ID:              id,
+		Logo:            pgtype.Text{String: logoURL, Valid: true},
+		LogoKey:         pgtype.Text{String: key, Valid: true},
+		LogoContentType: pgtype.Text{String: contentType, Valid: true},
+		LogoUpdatedAt:   pgtype.Timestamptz{Time: updatedAt, Valid: true},
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -319,11 +360,14 @@ func (r *Repository) CancelInvitation(ctx context.Context, id string) error {
 
 func mapOrg(o db.Organization) Organization {
 	return Organization{
-		ID:        o.ID,
-		Name:      o.Name,
-		Slug:      o.Slug,
-		Logo:      pgtextPtr(&o.Logo),
-		CreatedAt: o.CreatedAt.Time.Format(time3339),
+		ID:              o.ID,
+		Name:            o.Name,
+		Slug:            o.Slug,
+		Logo:            pgtextPtr(&o.Logo),
+		CreatedAt:       o.CreatedAt.Time.Format(time3339),
+		LogoKey:         pgtextPtr(&o.LogoKey),
+		LogoContentType: pgtextPtr(&o.LogoContentType),
+		LogoUpdatedAt:   pgtimestamptzPtr(&o.LogoUpdatedAt),
 	}
 }
 
@@ -357,6 +401,13 @@ func pgtext(s *string) pgtype.Text {
 		return pgtype.Text{Valid: false}
 	}
 	return pgtype.Text{String: *s, Valid: true}
+}
+
+func pgtimestamptzPtr(t *pgtype.Timestamptz) *time.Time {
+	if t == nil || !t.Valid {
+		return nil
+	}
+	return &t.Time
 }
 
 func textPtr(s string) pgtype.Text {

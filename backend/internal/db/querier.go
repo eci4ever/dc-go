@@ -11,6 +11,9 @@ import (
 type Querier interface {
 	ClearActiveOrganizationForMember(ctx context.Context, arg ClearActiveOrganizationForMemberParams) error
 	ClearUserAvatar(ctx context.Context, id string) (User, error)
+	CreateAcademicCourse(ctx context.Context, arg CreateAcademicCourseParams) (AcademicCourse, error)
+	CreateAcademicSemester(ctx context.Context, arg CreateAcademicSemesterParams) (AcademicSemester, error)
+	CreateAcademicStudent(ctx context.Context, arg CreateAcademicStudentParams) (AcademicStudent, error)
 	CreateAccount(ctx context.Context, arg CreateAccountParams) (Account, error)
 	CreateInvitation(ctx context.Context, arg CreateInvitationParams) (Invitation, error)
 	CreateMember(ctx context.Context, arg CreateMemberParams) (Member, error)
@@ -31,6 +34,12 @@ type Querier interface {
 	DeleteTeamMember(ctx context.Context, arg DeleteTeamMemberParams) error
 	DeleteUser(ctx context.Context, id string) error
 	DeleteVerification(ctx context.Context, id string) error
+	FindAcademicGrade(ctx context.Context, arg FindAcademicGradeParams) (AcademicGradeScale, error)
+	GetAcademicCourse(ctx context.Context, arg GetAcademicCourseParams) (AcademicCourse, error)
+	GetAcademicMember(ctx context.Context, arg GetAcademicMemberParams) (Member, error)
+	GetAcademicSemester(ctx context.Context, arg GetAcademicSemesterParams) (AcademicSemester, error)
+	GetAcademicStudent(ctx context.Context, arg GetAcademicStudentParams) (AcademicStudent, error)
+	GetAcademicUserRole(ctx context.Context, id string) (string, error)
 	GetAccountByProvider(ctx context.Context, arg GetAccountByProviderParams) (Account, error)
 	GetAccountsByUserID(ctx context.Context, userID string) ([]Account, error)
 	GetCredentialAccountByUserID(ctx context.Context, userID string) (Account, error)
@@ -46,9 +55,15 @@ type Querier interface {
 	GetUser(ctx context.Context, id string) (User, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetVerification(ctx context.Context, arg GetVerificationParams) (Verification, error)
+	ListAcademicCourses(ctx context.Context, organizationID string) ([]AcademicCourse, error)
+	ListAcademicGradeScale(ctx context.Context, organizationID string) ([]AcademicGradeScale, error)
+	ListAcademicResultsByStudent(ctx context.Context, arg ListAcademicResultsByStudentParams) ([]ListAcademicResultsByStudentRow, error)
+	ListAcademicSemesters(ctx context.Context, organizationID string) ([]AcademicSemester, error)
+	ListAcademicStudents(ctx context.Context, organizationID string) ([]AcademicStudent, error)
 	ListInvitationsByEmail(ctx context.Context, email string) ([]Invitation, error)
 	ListInvitationsByOrganizationID(ctx context.Context, organizationID string) ([]Invitation, error)
 	ListMembersByOrganizationID(ctx context.Context, organizationID string) ([]ListMembersByOrganizationIDRow, error)
+	ListOrganizations(ctx context.Context) ([]Organization, error)
 	ListOrganizationsByUserID(ctx context.Context, userID string) ([]Organization, error)
 	ListSessionsByUserID(ctx context.Context, userID string) ([]Session, error)
 	ListTeamMembers(ctx context.Context, teamID string) ([]ListTeamMembersRow, error)
@@ -58,11 +73,13 @@ type Querier interface {
 	UpdateInvitationStatus(ctx context.Context, arg UpdateInvitationStatusParams) (Invitation, error)
 	UpdateMemberRole(ctx context.Context, arg UpdateMemberRoleParams) (Member, error)
 	UpdateOrganization(ctx context.Context, arg UpdateOrganizationParams) (Organization, error)
+	UpdateOrganizationLogo(ctx context.Context, arg UpdateOrganizationLogoParams) (Organization, error)
 	UpdateSessionActiveOrganization(ctx context.Context, arg UpdateSessionActiveOrganizationParams) (Session, error)
 	UpdateTeam(ctx context.Context, arg UpdateTeamParams) (Team, error)
 	UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error)
 	UpdateUserAvatar(ctx context.Context, arg UpdateUserAvatarParams) (User, error)
 	UpdateUserRole(ctx context.Context, arg UpdateUserRoleParams) (User, error)
+	UpsertAcademicResult(ctx context.Context, arg UpsertAcademicResultParams) (AcademicResult, error)
 }
 
 var _ Querier = (*Queries)(nil)

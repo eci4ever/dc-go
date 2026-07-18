@@ -7,6 +7,7 @@ func RegisterRoutes(router fiber.Router, h *Handler, invitationLimit fiber.Handl
 		router.Post("/organizations", mw[0], mw[1], h.Create)
 		router.Get("/organizations", mw[0], h.List)
 		router.Get("/organizations/:id", mw[0], h.GetByID)
+		router.Get("/organizations/:id/logo", mw[0], h.GetLogo)
 		router.Put("/organizations/:id", mw[0], mw[1], h.Update)
 		router.Delete("/organizations/:id", mw[0], mw[1], h.Delete)
 		router.Get("/organizations/:id/members", mw[0], h.GetMembers)
@@ -23,6 +24,7 @@ func RegisterRoutes(router fiber.Router, h *Handler, invitationLimit fiber.Handl
 	router.Post("/organizations", h.Create)
 	router.Get("/organizations", h.List)
 	router.Get("/organizations/:id", h.GetByID)
+	router.Get("/organizations/:id/logo", h.GetLogo)
 	router.Put("/organizations/:id", h.Update)
 	router.Delete("/organizations/:id", h.Delete)
 	router.Get("/organizations/:id/members", h.GetMembers)
@@ -34,4 +36,13 @@ func RegisterRoutes(router fiber.Router, h *Handler, invitationLimit fiber.Handl
 	router.Post("/invitations/:id/accept", h.AcceptInvitation)
 	router.Post("/invitations/:id/decline", h.DeclineInvitation)
 	router.Delete("/invitations/:id", h.CancelInvitation)
+}
+
+func RegisterAdminRoutes(router fiber.Router, h *Handler, authMw, csrfMw, adminMw fiber.Handler) {
+	g := router.Group("/admin/organizations", authMw, adminMw)
+	g.Get("", h.AdminList)
+	g.Post("", csrfMw, h.AdminCreate)
+	g.Put("/:id", csrfMw, h.AdminUpdate)
+	g.Put("/:id/logo", csrfMw, h.AdminUploadLogo)
+	g.Delete("/:id", csrfMw, h.AdminDelete)
 }
