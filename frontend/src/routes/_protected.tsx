@@ -5,7 +5,6 @@ import {
   BreadcrumbItem,
   BreadcrumbList,
   BreadcrumbPage,
-  BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { Separator } from "@/components/ui/separator";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
@@ -27,41 +26,31 @@ function ProtectedLayout() {
 
   const isUserManagement = pathname.startsWith("/admin/users");
   const isAccount = pathname.startsWith("/account");
+  const pageName = isUserManagement ? "Users" : isAccount ? "Account" : "Dashboard";
 
   return (
-    <SidebarProvider>
+    <SidebarProvider className="h-svh min-h-0 overflow-hidden">
       <AppSidebar user={user} session={session} onLogout={logout} />
-      <SidebarInset>
-        <div className="sticky top-0 z-10 shrink-0 bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/80">
-          <header className="flex h-14 items-center gap-3 px-4 md:px-6">
+      <SidebarInset className="h-svh min-w-0 overflow-hidden">
+        <header className="flex h-16 shrink-0 items-center gap-2 bg-muted/40 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
+          <div className="flex min-w-0 items-center gap-2 px-4">
             <SidebarTrigger className="-ml-1" />
             <Separator
               orientation="vertical"
-              className="data-vertical:h-4 data-vertical:self-center"
+              className="mr-2 data-vertical:h-4 data-vertical:self-center"
             />
             <Breadcrumb>
               <BreadcrumbList>
-                {isUserManagement && (
-                  <>
-                    <BreadcrumbItem className="hidden md:inline-flex">
-                      <span>Administration</span>
-                    </BreadcrumbItem>
-                    <BreadcrumbSeparator className="hidden md:list-item" />
-                  </>
-                )}
                 <BreadcrumbItem>
-                  <BreadcrumbPage>
-                    {isUserManagement ? "Users" : isAccount ? "Account" : "Dashboard"}
-                  </BreadcrumbPage>
+                  <BreadcrumbPage>{pageName}</BreadcrumbPage>
                 </BreadcrumbItem>
               </BreadcrumbList>
             </Breadcrumb>
-          </header>
-          <Separator />
-        </div>
-        <main className="flex flex-1 flex-col p-4 md:p-6">
+          </div>
+        </header>
+        <div className="flex min-h-0 min-w-0 max-w-full flex-1 flex-col gap-4 overflow-x-hidden overflow-y-auto overscroll-y-contain p-4">
           <Outlet />
-        </main>
+        </div>
       </SidebarInset>
     </SidebarProvider>
   );

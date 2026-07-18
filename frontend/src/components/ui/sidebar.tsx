@@ -30,7 +30,7 @@ type SidebarContextProps = {
   open: boolean;
   setOpen: (open: boolean) => void;
   openMobile: boolean;
-  setOpenMobile: React.Dispatch<React.SetStateAction<boolean>>;
+  setOpenMobile: (open: boolean) => void;
   isMobile: boolean;
   toggleSidebar: () => void;
 };
@@ -559,7 +559,9 @@ function SidebarMenuSkeleton({
   className,
   showIcon = false,
   ...props
-}: React.ComponentProps<"div"> & { showIcon?: boolean }) {
+}: React.ComponentProps<"div"> & {
+  showIcon?: boolean;
+}) {
   // Random width between 50 to 90%.
   const [width] = React.useState(() => {
     return `${Math.floor(Math.random() * 40) + 50}%`;
