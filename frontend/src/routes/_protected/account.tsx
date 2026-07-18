@@ -219,26 +219,23 @@ function AccountPage() {
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-8">
-      <div className="flex flex-col gap-2 border-b pb-6">
-        <Badge variant="outline" className="w-fit">
-          Account settings
-        </Badge>
-        <h1 className="text-3xl font-semibold tracking-tight">Your account</h1>
-        <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
+    <div className="flex w-full min-w-0 max-w-full flex-1 flex-col gap-4 overflow-x-clip">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight text-balance">Account</h1>
+        <p className="text-sm text-pretty text-muted-foreground">
           Manage your personal details and account security.
         </p>
       </div>
 
-      <Card className="overflow-hidden shadow-sm">
+      <Card id="profile" className="min-w-0 scroll-mt-4 shadow-sm">
         <CardHeader>
-          <div className="flex items-start gap-3">
+          <div className="flex min-w-0 items-start gap-3">
             <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
               <UserRoundIcon className="size-5" />
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="flex min-w-0 flex-col gap-1">
               <CardTitle>Profile information</CardTitle>
-              <CardDescription>
+              <CardDescription className="text-pretty">
                 Update how your profile appears throughout the application.
               </CardDescription>
             </div>
@@ -273,9 +270,11 @@ function AccountPage() {
                 <Input
                   ref={avatarInputRef}
                   id="account-avatar"
+                  name="avatar"
                   type="file"
                   accept="image/jpeg,image/png"
                   className="sr-only"
+                  aria-label="Profile photo"
                   aria-describedby="account-avatar-description"
                   onChange={selectAvatar}
                 />
@@ -292,7 +291,7 @@ function AccountPage() {
                     <ImagePlusIcon data-icon="inline-start" />
                   )}
                   {uploadAvatar.isPending
-                    ? "Uploading"
+                    ? "Uploading…"
                     : user.image
                       ? "Change photo"
                       : "Upload photo"}
@@ -311,7 +310,10 @@ function AccountPage() {
                 )}
               </div>
             </div>
-            <p id="account-avatar-description" className="text-sm text-muted-foreground">
+            <p
+              id="account-avatar-description"
+              className="text-sm text-pretty text-muted-foreground"
+            >
               JPEG or PNG, up to 2 MB. Images larger than 2048 × 2048 pixels are rejected.
             </p>
             {avatarError && (
@@ -355,6 +357,7 @@ function AccountPage() {
                   <FieldLabel htmlFor="account-name">Name</FieldLabel>
                   <Input
                     id="account-name"
+                    name="name"
                     value={name}
                     required
                     maxLength={100}
@@ -367,7 +370,16 @@ function AccountPage() {
                 </Field>
                 <Field data-disabled>
                   <FieldLabel htmlFor="account-email">Email address</FieldLabel>
-                  <Input id="account-email" value={user.email} disabled readOnly />
+                  <Input
+                    id="account-email"
+                    name="email"
+                    type="email"
+                    value={user.email}
+                    autoComplete="email"
+                    spellCheck={false}
+                    disabled
+                    readOnly
+                  />
                   <FieldDescription>Your email address cannot be changed.</FieldDescription>
                 </Field>
               </FieldGroup>
@@ -388,7 +400,11 @@ function AccountPage() {
             )}
           </CardContent>
           <CardFooter className="justify-end border-t bg-muted/20">
-            <Button type="submit" disabled={updateProfile.isPending || !name.trim()}>
+            <Button
+              type="submit"
+              className="w-full sm:w-auto"
+              disabled={updateProfile.isPending || !name.trim()}
+            >
               {updateProfile.isPending && <Spinner data-icon="inline-start" />}
               Save changes
             </Button>
@@ -396,15 +412,15 @@ function AccountPage() {
         </form>
       </Card>
 
-      <Card className="overflow-hidden shadow-sm">
+      <Card id="password" className="min-w-0 scroll-mt-4 shadow-sm">
         <CardHeader>
-          <div className="flex items-start gap-3">
+          <div className="flex min-w-0 items-start gap-3">
             <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
               <KeyRoundIcon className="size-5" />
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="flex min-w-0 flex-col gap-1">
               <CardTitle>Change password</CardTitle>
-              <CardDescription>
+              <CardDescription className="text-pretty">
                 Choose a strong password that you do not use anywhere else.
               </CardDescription>
             </div>
@@ -418,6 +434,7 @@ function AccountPage() {
                   <FieldLabel htmlFor="current-password">Current password</FieldLabel>
                   <Input
                     id="current-password"
+                    name="currentPassword"
                     type="password"
                     value={currentPassword}
                     required
@@ -429,6 +446,7 @@ function AccountPage() {
                   <FieldLabel htmlFor="new-password">New password</FieldLabel>
                   <Input
                     id="new-password"
+                    name="newPassword"
                     type="password"
                     value={newPassword}
                     required
@@ -442,6 +460,7 @@ function AccountPage() {
                   <FieldLabel htmlFor="confirm-password">Confirm new password</FieldLabel>
                   <Input
                     id="confirm-password"
+                    name="confirmPassword"
                     type="password"
                     value={confirmPassword}
                     required
@@ -471,7 +490,7 @@ function AccountPage() {
             )}
           </CardContent>
           <CardFooter className="justify-end border-t bg-muted/20">
-            <Button type="submit" disabled={changePassword.isPending}>
+            <Button type="submit" className="w-full sm:w-auto" disabled={changePassword.isPending}>
               {changePassword.isPending && <Spinner data-icon="inline-start" />}
               Update password
             </Button>
@@ -479,15 +498,17 @@ function AccountPage() {
         </form>
       </Card>
 
-      <Card className="overflow-hidden shadow-sm">
+      <Card id="two-factor" className="min-w-0 scroll-mt-4 shadow-sm">
         <CardHeader>
-          <div className="flex items-start gap-3">
+          <div className="flex min-w-0 items-start gap-3">
             <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
               <ShieldCheckIcon className="size-5" />
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="flex min-w-0 flex-col gap-1">
               <CardTitle>Two-factor authentication</CardTitle>
-              <CardDescription>Add an extra layer of protection to your account.</CardDescription>
+              <CardDescription className="text-pretty">
+                Add an extra layer of protection to your account.
+              </CardDescription>
             </div>
           </div>
         </CardHeader>
@@ -514,22 +535,22 @@ function AccountPage() {
           </Alert>
         </CardContent>
         <CardFooter className="justify-end border-t bg-muted/20">
-          <Button variant="outline" disabled>
+          <Button className="w-full sm:w-auto" variant="outline" disabled>
             <ShieldPlusIcon data-icon="inline-start" />
             Set up two-factor
           </Button>
         </CardFooter>
       </Card>
 
-      <Card className="overflow-hidden shadow-sm">
+      <Card id="sessions" className="min-w-0 scroll-mt-4 shadow-sm">
         <CardHeader>
-          <div className="flex items-start gap-3">
+          <div className="flex min-w-0 items-start gap-3">
             <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
               <LaptopIcon className="size-5" />
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="flex min-w-0 flex-col gap-1">
               <CardTitle>Active sessions</CardTitle>
-              <CardDescription>
+              <CardDescription className="text-pretty">
                 Review devices signed in to your account and revoke any session you do not
                 recognize.
               </CardDescription>
@@ -589,7 +610,7 @@ function AccountPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          className="self-end sm:self-auto"
+                          className="w-full sm:w-auto"
                           disabled={revokeSession.isPending}
                           onClick={() => setSessionToRevoke(session)}
                         >

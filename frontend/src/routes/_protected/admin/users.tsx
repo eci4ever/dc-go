@@ -1,7 +1,18 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  flexRender,
+  getCoreRowModel,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  useReactTable,
+  type ColumnDef,
+  type ColumnFiltersState,
+  type SortingState,
+} from "@tanstack/react-table";
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { AlertCircleIcon, UsersIcon } from "lucide-react";
+import { AlertCircleIcon, ArrowUpDownIcon, UsersIcon } from "lucide-react";
 
 import {
   AlertDialog,
@@ -14,8 +25,17 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   Empty,
   EmptyDescription,
@@ -23,6 +43,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -82,6 +103,97 @@ function UsersPage() {
     },
   });
 
+  const columns = useMemo<ColumnDef<User>[]>(
+    () => [
+      {
+        id: "user",
+        accessorFn: (user) => `${user.name} ${user.email}`,
+        header: ({ column }) => (
+          <Button
+            variant="ghost"
+            className="-ml-2"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          >
+            User
+            <ArrowUpDownIcon data-icon="inline-end" />
+          </Button>
+        ),
+        cell: ({ row }) => {
+          const user = row.original;
+          return (
+            <div className="flex min-w-56 items-center gap-3">
+              <Avatar>
+                <AvatarImage src={user.image ?? undefined} alt={user.name} />
+                <AvatarFallback>{initials(user.name)}</AvatarFallback>
+              </Avatar>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="truncate font-medium">{user.name}</span>
+                  {user.id === currentUser?.id && <Badge variant="outline">You</Badge>}
+                </div>
+                <p className="truncate text-sm text-muted-foreground">{user.email}</p>
+              </div>
+            </div>
+          );
+        },
+      },
+      {
+        accessorKey: "banned",
+        header: "Status",
+        cell: ({ row }) => (
+          <Badge variant={row.original.banned ? "destructive" : "secondary"}>
+            {row.original.banned ? "Banned" : "Active"}
+          </Badge>
+        ),
+      },
+      {
+        accessorKey: "createdAt",
+        header: ({ column }) => (
+          <Button
+            variant="ghost"
+            className="-ml-2"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          >
+            Joined
+            <ArrowUpDownIcon data-icon="inline-end" />
+          </Button>
+        ),
+        cell: ({ row }) => (
+          <span className="text-muted-foreground">{formatDate(row.original.createdAt)}</span>
+        ),
+      },
+      {
+        accessorKey: "role",
+        header: () => <div className="text-right">Global role</div>,
+        cell: ({ row }) => {
+          const user = row.original;
+          return (
+            <div className="flex justify-end">
+              <Select
+                value={user.role}
+                disabled={user.id === currentUser?.id || updateRole.isPending}
+                onValueChange={(role: UserRole) => {
+                  if (role !== user.role) setPendingChange({ user, role });
+                }}
+              >
+                <SelectTrigger size="sm" aria-label={`Role for ${user.name}`}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectItem value="user">User</SelectItem>
+                    <SelectItem value="admin">Admin</SelectItem>
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </div>
+          );
+        },
+      },
+    ],
+    [currentUser?.id, updateRole.isPending],
+  );
+
   const confirmChange = () => {
     if (!pendingChange) return;
     updateRole.mutate(pendingChange);
@@ -89,7 +201,7 @@ function UsersPage() {
   };
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex w-full min-w-0 max-w-full flex-col gap-4">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Users</h1>
         <p className="text-sm text-muted-foreground">Manage global application roles.</p>
@@ -110,21 +222,22 @@ function UsersPage() {
         </Alert>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Application users</CardTitle>
-          <CardDescription>
-            Global roles do not grant access to individual organizations.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {users.isPending ? (
-            <div className="flex flex-col gap-3">
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-            </div>
-          ) : users.data?.length === 0 ? (
+      {users.isPending ? (
+        <Card className="min-w-0">
+          <CardHeader>
+            <CardTitle>Application users</CardTitle>
+            <CardDescription>Global roles do not grant access to organizations.</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
+            <Skeleton className="h-9 w-full max-w-sm" />
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-12 w-full" />
+          </CardContent>
+        </Card>
+      ) : users.data?.length === 0 ? (
+        <Card className="min-w-0">
+          <CardContent>
             <Empty>
               <EmptyHeader>
                 <EmptyMedia variant="icon">
@@ -134,55 +247,11 @@ function UsersPage() {
                 <EmptyDescription>No application users were found.</EmptyDescription>
               </EmptyHeader>
             </Empty>
-          ) : users.data ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>User</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Global role</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {users.data.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell>
-                      <div className="flex flex-col">
-                        <span className="font-medium">{user.name}</span>
-                        <span className="text-sm text-muted-foreground">{user.email}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={user.banned ? "destructive" : "secondary"}>
-                        {user.banned ? "Banned" : "Active"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex justify-end">
-                        <Select
-                          value={user.role}
-                          disabled={user.id === currentUser?.id || updateRole.isPending}
-                          onValueChange={(role: UserRole) => setPendingChange({ user, role })}
-                        >
-                          <SelectTrigger size="sm" aria-label={`Role for ${user.name}`}>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectGroup>
-                              <SelectItem value="user">User</SelectItem>
-                              <SelectItem value="admin">Admin</SelectItem>
-                            </SelectGroup>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          ) : null}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      ) : users.data ? (
+        <UsersDataTable columns={columns} data={users.data} />
+      ) : null}
 
       <AlertDialog
         open={pendingChange !== null}
@@ -205,4 +274,118 @@ function UsersPage() {
       </AlertDialog>
     </div>
   );
+}
+
+function UsersDataTable({ columns, data }: { columns: ColumnDef<User>[]; data: User[] }) {
+  const [sorting, setSorting] = useState<SortingState>([]);
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+  const table = useReactTable({
+    data,
+    columns,
+    onSortingChange: setSorting,
+    onColumnFiltersChange: setColumnFilters,
+    getCoreRowModel: getCoreRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    state: { sorting, columnFilters },
+  });
+
+  return (
+    <Card className="min-w-0">
+      <CardHeader>
+        <CardTitle>Application users</CardTitle>
+        <CardDescription>
+          Global roles do not grant access to individual organizations.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex min-w-0 flex-col gap-4">
+        <Input
+          className="w-full sm:max-w-sm"
+          placeholder="Search users..."
+          aria-label="Search users"
+          value={(table.getColumn("user")?.getFilterValue() as string) ?? ""}
+          onChange={(event) => table.getColumn("user")?.setFilterValue(event.target.value)}
+        />
+        <div className="min-w-0 overflow-hidden rounded-md border">
+          <Table className="min-w-176">
+            <TableHeader>
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id}>
+                  {headerGroup.headers.map((header) => (
+                    <TableHead key={header.id}>
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(header.column.columnDef.header, header.getContext())}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              ))}
+            </TableHeader>
+            <TableBody>
+              {table.getRowModel().rows.length ? (
+                table.getRowModel().rows.map((row) => (
+                  <TableRow key={row.id}>
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id}>
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={columns.length} className="h-24 text-center">
+                    No users match your search.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </CardContent>
+      <CardFooter className="flex flex-col gap-3 border-t sm:flex-row sm:justify-between">
+        <p className="text-sm text-muted-foreground">
+          {table.getFilteredRowModel().rows.length} user
+          {table.getFilteredRowModel().rows.length === 1 ? "" : "s"}
+        </p>
+        <div className="flex w-full gap-2 sm:w-auto">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex-1 sm:flex-none"
+            disabled={!table.getCanPreviousPage()}
+            onClick={() => table.previousPage()}
+          >
+            Previous
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex-1 sm:flex-none"
+            disabled={!table.getCanNextPage()}
+            onClick={() => table.nextPage()}
+          >
+            Next
+          </Button>
+        </div>
+      </CardFooter>
+    </Card>
+  );
+}
+
+function initials(name: string) {
+  return name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
+}
+
+function formatDate(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Unknown";
+  return new Intl.DateTimeFormat("en-MY", { dateStyle: "medium" }).format(date);
 }

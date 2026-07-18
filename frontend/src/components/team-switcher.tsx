@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Building2Icon, ChevronsUpDownIcon } from "lucide-react";
 
 import {
   DropdownMenu,
@@ -14,7 +15,6 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { Building2Icon, ChevronsUpDownIcon } from "lucide-react";
 import * as api from "@/lib/api";
 import type { SessionData } from "@/lib/api";
 import { sessionQueryKey } from "@/lib/session";
@@ -60,7 +60,7 @@ export function OrganizationSwitcher({ session }: { session: SessionData }) {
               <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
                 <Building2Icon />
               </div>
-              <div className="grid flex-1 text-left text-sm leading-tight">
+              <div className="grid min-w-0 flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">
                   {activeOrganization?.name ?? "Select organization"}
                 </span>
