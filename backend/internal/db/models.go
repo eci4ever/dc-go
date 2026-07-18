@@ -8,6 +8,67 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type AcademicCourse struct {
+	ID             string             `json:"id"`
+	OrganizationID string             `json:"organization_id"`
+	Code           string             `json:"code"`
+	Name           string             `json:"name"`
+	Credits        float64            `json:"credits"`
+	Active         bool               `json:"active"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+type AcademicGradeScale struct {
+	ID             string  `json:"id"`
+	OrganizationID string  `json:"organization_id"`
+	Letter         string  `json:"letter"`
+	MinScore       float64 `json:"min_score"`
+	MaxScore       float64 `json:"max_score"`
+	GradePoint     float64 `json:"grade_point"`
+	Passing        bool    `json:"passing"`
+	SortOrder      int32   `json:"sort_order"`
+}
+
+type AcademicResult struct {
+	ID             string             `json:"id"`
+	OrganizationID string             `json:"organization_id"`
+	StudentID      string             `json:"student_id"`
+	SemesterID     string             `json:"semester_id"`
+	CourseID       string             `json:"course_id"`
+	Score          float64            `json:"score"`
+	Grade          string             `json:"grade"`
+	GradePoint     float64            `json:"grade_point"`
+	Credits        float64            `json:"credits"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+type AcademicSemester struct {
+	ID             string             `json:"id"`
+	OrganizationID string             `json:"organization_id"`
+	Code           string             `json:"code"`
+	Name           string             `json:"name"`
+	AcademicYear   int32              `json:"academic_year"`
+	Sequence       int32              `json:"sequence"`
+	Status         string             `json:"status"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+type AcademicStudent struct {
+	ID             string             `json:"id"`
+	OrganizationID string             `json:"organization_id"`
+	StudentNo      string             `json:"student_no"`
+	Name           string             `json:"name"`
+	Email          pgtype.Text        `json:"email"`
+	Program        string             `json:"program"`
+	Intake         string             `json:"intake"`
+	Status         string             `json:"status"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
 type Account struct {
 	ID                    string             `json:"id"`
 	AccountID             string             `json:"account_id"`
@@ -45,12 +106,15 @@ type Member struct {
 }
 
 type Organization struct {
-	ID        string             `json:"id"`
-	Name      string             `json:"name"`
-	Slug      string             `json:"slug"`
-	Logo      pgtype.Text        `json:"logo"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
-	Metadata  pgtype.Text        `json:"metadata"`
+	ID              string             `json:"id"`
+	Name            string             `json:"name"`
+	Slug            string             `json:"slug"`
+	Logo            pgtype.Text        `json:"logo"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	Metadata        pgtype.Text        `json:"metadata"`
+	LogoKey         pgtype.Text        `json:"logo_key"`
+	LogoContentType pgtype.Text        `json:"logo_content_type"`
+	LogoUpdatedAt   pgtype.Timestamptz `json:"logo_updated_at"`
 }
 
 type Session struct {

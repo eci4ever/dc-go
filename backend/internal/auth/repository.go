@@ -236,7 +236,7 @@ func mapSessionContext(s db.GetSessionContextByTokenRow) SessionContext {
 		UserID:                 s.UserID,
 		ImpersonatedBy:         pgtextPtr(&s.ImpersonatedBy),
 		ActiveOrganizationID:   pgtextPtr(&s.ActiveOrganizationID),
-		ActiveOrganizationRole: pgtextPtr(&s.ActiveOrganizationRole),
+		ActiveOrganizationRole: stringPtr(s.ActiveOrganizationRole),
 		ActiveTeamID:           pgtextPtr(&s.ActiveTeamID),
 	}
 }
@@ -253,6 +253,13 @@ func pgtextPtr(t *pgtype.Text) *string {
 		return nil
 	}
 	return &t.String
+}
+
+func stringPtr(value string) *string {
+	if value == "" {
+		return nil
+	}
+	return &value
 }
 
 func pgtext(s *string) pgtype.Text {

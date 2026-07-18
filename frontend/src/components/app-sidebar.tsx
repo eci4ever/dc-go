@@ -1,5 +1,5 @@
 import type { ComponentProps } from "react";
-import { LayoutDashboardIcon, UsersIcon } from "lucide-react";
+import { Building2Icon, GraduationCapIcon, LayoutDashboardIcon, UsersIcon } from "lucide-react";
 
 import { NavMain } from "@/components/nav-main";
 import { NavUser } from "@/components/nav-user";
@@ -29,9 +29,22 @@ const overviewItems = [
 
 const adminItems = [
   {
+    title: "Organizations",
+    url: "/admin/organizations" as const,
+    icon: Building2Icon,
+  },
+  {
     title: "Users",
     url: "/admin/users" as const,
     icon: UsersIcon,
+  },
+];
+
+const academicItems = [
+  {
+    title: "Academic",
+    url: "/academic" as const,
+    icon: GraduationCapIcon,
   },
 ];
 
@@ -43,6 +56,10 @@ export function AppSidebar({ user, session, onLogout, ...props }: AppSidebarProp
       </SidebarHeader>
       <SidebarContent>
         <NavMain label="Overview" items={overviewItems} />
+        {session.session.activeOrganizationId &&
+          ["owner", "admin"].includes(session.session.activeOrganizationRole ?? "") && (
+            <NavMain label="Institute" items={academicItems} />
+          )}
         {user.role === "admin" && <NavMain label="Administration" items={adminItems} />}
       </SidebarContent>
       <SidebarFooter>

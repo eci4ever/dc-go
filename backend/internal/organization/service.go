@@ -3,17 +3,21 @@ package organization
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"time"
+
+	"github.com/eci4ever/dc-go/internal/storage"
 )
 
 const invitationTTL = 7 * 24 * time.Hour
 
 type Service struct {
-	repo *Repository
+	repo      *Repository
+	logoStore storage.ObjectStore
 }
 
-func NewService(repo *Repository) *Service {
-	return &Service{repo: repo}
+func NewService(repo *Repository, logoStore storage.ObjectStore) *Service {
+	return &Service{repo: repo, logoStore: logoStore}
 }
 
 func (s *Service) Create(ctx context.Context, req CreateOrgRequest, creatorID string) (Organization, error) {
@@ -30,7 +34,30 @@ func (s *Service) GetByID(ctx context.Context, id, actorID string) (Organization
 }
 
 func (s *Service) List(ctx context.Context, userID string) ([]Organization, error) {
+	role, err := s.repo.UserRole(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if role == "admin" {
+		return s.repo.ListAll(ctx)
+	}
 	return s.repo.ListByUserID(ctx, userID)
+}
+
+func (s *Service) AdminList(ctx context.Context) ([]Organization, error) {
+	return s.repo.ListAll(ctx)
+}
+
+func (s *Service) AdminCreate(ctx context.Context, req CreateOrgRequest, actorID string) (Organization, error) {
+	return s.repo.Create(ctx, req.Name, req.Slug, req.Logo, actorID)
+}
+
+func (s *Service) AdminUpdate(ctx context.Context, id string, req UpdateOrgRequest) (Organization, error) {
+	return s.repo.Update(ctx, id, req.Name, req.Slug, req.Logo)
+}
+
+func (s *Service) AdminDelete(ctx context.Context, id string) error {
+	return s.delete(ctx, id)
 }
 
 func (s *Service) Update(ctx context.Context, id, actorID string, req UpdateOrgRequest) (Organization, error) {
@@ -44,7 +71,23 @@ func (s *Service) Delete(ctx context.Context, id, actorID string) error {
 	if err := s.requireRole(ctx, id, actorID, "owner"); err != nil {
 		return err
 	}
-	return s.repo.Delete(ctx, id)
+	return s.delete(ctx, id)
+}
+
+func (s *Service) delete(ctx context.Context, id string) error {
+	org, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	if err := s.repo.Delete(ctx, id); err != nil {
+		return err
+	}
+	if org.LogoKey != nil {
+		if err := s.logoStore.Delete(ctx, *org.LogoKey); err != nil {
+			slog.Warn("failed to delete logo for removed organization", "key", *org.LogoKey, "error", err)
+		}
+	}
+	return nil
 }
 
 func (s *Service) GetMembers(ctx context.Context, orgID, actorID string) ([]Member, error) {

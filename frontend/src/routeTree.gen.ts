@@ -13,7 +13,9 @@ import { Route as ProtectedRouteImport } from './routes/_protected'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ProtectedDashboardRouteImport } from './routes/_protected/dashboard'
 import { Route as ProtectedAccountRouteImport } from './routes/_protected/account'
+import { Route as ProtectedAcademicRouteImport } from './routes/_protected/academic'
 import { Route as ProtectedAdminUsersRouteImport } from './routes/_protected/admin/users'
+import { Route as ProtectedAdminOrganizationsRouteImport } from './routes/_protected/admin/organizations'
 
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
@@ -44,26 +46,41 @@ const ProtectedAccountRoute = ProtectedAccountRouteImport.update({
   path: '/account',
   getParentRoute: () => ProtectedRoute,
 } as any)
+const ProtectedAcademicRoute = ProtectedAcademicRouteImport.update({
+  id: '/academic',
+  path: '/academic',
+  getParentRoute: () => ProtectedRoute,
+} as any)
 const ProtectedAdminUsersRoute = ProtectedAdminUsersRouteImport.update({
   id: '/admin/users',
   path: '/admin/users',
   getParentRoute: () => ProtectedRoute,
 } as any)
+const ProtectedAdminOrganizationsRoute =
+  ProtectedAdminOrganizationsRouteImport.update({
+    id: '/admin/organizations',
+    path: '/admin/organizations',
+    getParentRoute: () => ProtectedRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
+  '/academic': typeof ProtectedAcademicRoute
   '/account': typeof ProtectedAccountRoute
   '/dashboard': typeof ProtectedDashboardRoute
+  '/admin/organizations': typeof ProtectedAdminOrganizationsRoute
   '/admin/users': typeof ProtectedAdminUsersRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
+  '/academic': typeof ProtectedAcademicRoute
   '/account': typeof ProtectedAccountRoute
   '/dashboard': typeof ProtectedDashboardRoute
+  '/admin/organizations': typeof ProtectedAdminOrganizationsRoute
   '/admin/users': typeof ProtectedAdminUsersRoute
 }
 export interface FileRoutesById {
@@ -72,24 +89,43 @@ export interface FileRoutesById {
   '/_protected': typeof ProtectedRouteWithChildren
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
+  '/_protected/academic': typeof ProtectedAcademicRoute
   '/_protected/account': typeof ProtectedAccountRoute
   '/_protected/dashboard': typeof ProtectedDashboardRoute
+  '/_protected/admin/organizations': typeof ProtectedAdminOrganizationsRoute
   '/_protected/admin/users': typeof ProtectedAdminUsersRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/login' | '/signup' | '/account' | '/dashboard' | '/admin/users'
+    | '/'
+    | '/login'
+    | '/signup'
+    | '/academic'
+    | '/account'
+    | '/dashboard'
+    | '/admin/organizations'
+    | '/admin/users'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/signup' | '/account' | '/dashboard' | '/admin/users'
+  to:
+    | '/'
+    | '/login'
+    | '/signup'
+    | '/academic'
+    | '/account'
+    | '/dashboard'
+    | '/admin/organizations'
+    | '/admin/users'
   id:
     | '__root__'
     | '/'
     | '/_protected'
     | '/login'
     | '/signup'
+    | '/_protected/academic'
     | '/_protected/account'
     | '/_protected/dashboard'
+    | '/_protected/admin/organizations'
     | '/_protected/admin/users'
   fileRoutesById: FileRoutesById
 }
@@ -144,6 +180,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedAccountRouteImport
       parentRoute: typeof ProtectedRoute
     }
+    '/_protected/academic': {
+      id: '/_protected/academic'
+      path: '/academic'
+      fullPath: '/academic'
+      preLoaderRoute: typeof ProtectedAcademicRouteImport
+      parentRoute: typeof ProtectedRoute
+    }
     '/_protected/admin/users': {
       id: '/_protected/admin/users'
       path: '/admin/users'
@@ -151,18 +194,29 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedAdminUsersRouteImport
       parentRoute: typeof ProtectedRoute
     }
+    '/_protected/admin/organizations': {
+      id: '/_protected/admin/organizations'
+      path: '/admin/organizations'
+      fullPath: '/admin/organizations'
+      preLoaderRoute: typeof ProtectedAdminOrganizationsRouteImport
+      parentRoute: typeof ProtectedRoute
+    }
   }
 }
 
 interface ProtectedRouteChildren {
+  ProtectedAcademicRoute: typeof ProtectedAcademicRoute
   ProtectedAccountRoute: typeof ProtectedAccountRoute
   ProtectedDashboardRoute: typeof ProtectedDashboardRoute
+  ProtectedAdminOrganizationsRoute: typeof ProtectedAdminOrganizationsRoute
   ProtectedAdminUsersRoute: typeof ProtectedAdminUsersRoute
 }
 
 const ProtectedRouteChildren: ProtectedRouteChildren = {
+  ProtectedAcademicRoute: ProtectedAcademicRoute,
   ProtectedAccountRoute: ProtectedAccountRoute,
   ProtectedDashboardRoute: ProtectedDashboardRoute,
+  ProtectedAdminOrganizationsRoute: ProtectedAdminOrganizationsRoute,
   ProtectedAdminUsersRoute: ProtectedAdminUsersRoute,
 }
 

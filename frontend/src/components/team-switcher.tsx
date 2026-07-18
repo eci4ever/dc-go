@@ -70,7 +70,7 @@ export function OrganizationSwitcher({ session }: { session: SessionData }) {
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent
-            className="w-60 p-2"
+            className="max-h-[min(70svh,28rem)] w-60 overflow-y-auto p-2"
             align="start"
             side={isMobile ? "bottom" : "right"}
             sideOffset={4}

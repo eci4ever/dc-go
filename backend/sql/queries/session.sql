@@ -2,8 +2,13 @@
 SELECT * FROM "session" WHERE token = $1;
 
 -- name: GetSessionContextByToken :one
-SELECT s.*, m.role AS active_organization_role
+SELECT s.*, COALESCE(
+  m.role,
+  CASE WHEN s.active_organization_id IS NOT NULL AND u.role = 'admin' THEN 'admin' END,
+  ''
+) AS active_organization_role
 FROM "session" s
+JOIN "user" u ON u.id = s.user_id
 LEFT JOIN "member" m
   ON m.organization_id = s.active_organization_id
  AND m.user_id = s.user_id
@@ -23,8 +28,18 @@ WHERE s.token = $1
   AND s.user_id = $3
   AND s.expires_at > NOW()
   AND EXISTS (
-      SELECT 1 FROM "member" m
-      WHERE m.organization_id = $2 AND m.user_id = $3
+      SELECT 1 FROM "organization" o
+      WHERE o.id = $2
+        AND (
+          EXISTS (
+            SELECT 1 FROM "member" m
+            WHERE m.organization_id = o.id AND m.user_id = $3
+          )
+          OR EXISTS (
+            SELECT 1 FROM "user" u
+            WHERE u.id = $3 AND u.role = 'admin'
+          )
+        )
   )
 RETURNING *;
 
