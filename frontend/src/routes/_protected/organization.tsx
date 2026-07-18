@@ -5,6 +5,8 @@ import {
   AlertCircleIcon,
   Building2Icon,
   CheckCircle2Icon,
+  HistoryIcon,
+  KeyRoundIcon,
   MailPlusIcon,
   SearchIcon,
   ShieldCheckIcon,
@@ -64,6 +66,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   Table,
   TableBody,
@@ -81,6 +84,38 @@ export const Route = createFileRoute("/_protected/organization")({
 });
 
 type ManagedRole = "admin" | "member";
+
+const permissionOptions: Array<{
+  value: api.OrganizationPermission;
+  label: string;
+  description: string;
+}> = [
+  {
+    value: "members.manage",
+    label: "Members",
+    description: "Invite members and cancel invitations",
+  },
+  {
+    value: "academic.students.manage",
+    label: "Students",
+    description: "View and create student records",
+  },
+  {
+    value: "academic.structure.manage",
+    label: "Academic structure",
+    description: "Manage semesters, courses, and grade scale",
+  },
+  {
+    value: "academic.results.manage",
+    label: "Results",
+    description: "Enter results and view transcripts",
+  },
+  {
+    value: "audit.view",
+    label: "Audit trail",
+    description: "Review organization administrative activity",
+  },
+];
 
 function OrganizationManagementPage() {
   const { session } = useAuth();
@@ -100,6 +135,7 @@ function OrganizationManagementPage() {
   const organizationKey = ["organization", organizationId] as const;
   const membersKey = ["organization", organizationId, "members"] as const;
   const invitationsKey = ["organization", organizationId, "invitations"] as const;
+  const auditKey = ["organization", organizationId, "audit-logs"] as const;
 
   const [details, setDetails] = useState({ name: "", slug: "" });
   const [logoFile, setLogoFile] = useState<File | null>(null);
@@ -111,6 +147,8 @@ function OrganizationManagementPage() {
     role: "member",
   });
   const [memberToRemove, setMemberToRemove] = useState<api.OrganizationMember | null>(null);
+  const [permissionMember, setPermissionMember] = useState<api.OrganizationMember | null>(null);
+  const [selectedPermissions, setSelectedPermissions] = useState<api.OrganizationPermission[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
 
   const organization = useQuery({
@@ -127,6 +165,11 @@ function OrganizationManagementPage() {
     queryKey: invitationsKey,
     enabled: Boolean(organizationId),
     queryFn: () => load(api.listOrganizationInvitations(organizationId!)),
+  });
+  const auditLogs = useQuery({
+    queryKey: auditKey,
+    enabled: Boolean(organizationId),
+    queryFn: () => load(api.listOrganizationAuditLogs(organizationId!)),
   });
 
   useEffect(() => {
@@ -152,6 +195,7 @@ function OrganizationManagementPage() {
       queryClient.setQueryData(organizationKey, saved);
       queryClient.invalidateQueries({ queryKey: ["organizations"] });
       queryClient.invalidateQueries({ queryKey: ["admin", "organizations"] });
+      queryClient.invalidateQueries({ queryKey: auditKey });
       setNotice("Organization details updated successfully.");
     },
   });
@@ -161,6 +205,7 @@ function OrganizationManagementPage() {
       queryClient.setQueryData(organizationKey, saved);
       queryClient.invalidateQueries({ queryKey: ["organizations"] });
       queryClient.invalidateQueries({ queryKey: ["admin", "organizations"] });
+      queryClient.invalidateQueries({ queryKey: auditKey });
       setLogoFile(null);
       setNotice("Organization logo updated successfully.");
     },
@@ -174,6 +219,7 @@ function OrganizationManagementPage() {
           member.user_id === variables.userId ? { ...member, role: variables.role } : member,
         ),
       );
+      queryClient.invalidateQueries({ queryKey: auditKey });
       setNotice("Member role updated successfully.");
     },
   });
@@ -184,6 +230,7 @@ function OrganizationManagementPage() {
         current.filter((member) => member.user_id !== userId),
       );
       setMemberToRemove(null);
+      queryClient.invalidateQueries({ queryKey: auditKey });
       setNotice("Member removed from the organization.");
     },
   });
@@ -198,6 +245,7 @@ function OrganizationManagementPage() {
       setInviteOpen(false);
       setInviteForm({ email: "", role: "member" });
       setNotice(`Invitation sent to ${invitation.email}.`);
+      queryClient.invalidateQueries({ queryKey: auditKey });
     },
   });
   const cancelInvitation = useMutation({
@@ -207,6 +255,29 @@ function OrganizationManagementPage() {
         current.filter((invitation) => invitation.id !== id),
       );
       setNotice("Invitation cancelled.");
+      queryClient.invalidateQueries({ queryKey: auditKey });
+    },
+  });
+  const updatePermissions = useMutation({
+    mutationFn: () =>
+      load(
+        api.updateOrganizationMemberPermissions(
+          organizationId!,
+          permissionMember!.user_id,
+          selectedPermissions,
+        ),
+      ),
+    onSuccess: (updated) => {
+      queryClient.setQueryData<api.OrganizationMember[]>(membersKey, (current = []) =>
+        current.map((member) =>
+          member.user_id === updated.user_id
+            ? { ...member, permissions: updated.permissions }
+            : member,
+        ),
+      );
+      queryClient.invalidateQueries({ queryKey: auditKey });
+      setPermissionMember(null);
+      setNotice("Member permissions updated successfully.");
     },
   });
   const setActiveOrganization = useMutation({
@@ -267,7 +338,7 @@ function OrganizationManagementPage() {
     );
   }
 
-  const queryError = organization.error ?? members.error ?? invitations.error;
+  const queryError = organization.error ?? members.error ?? invitations.error ?? auditLogs.error;
   const mutationError =
     updateDetails.error ??
     uploadLogo.error ??
@@ -275,10 +346,12 @@ function OrganizationManagementPage() {
     removeMember.error ??
     sendInvitation.error ??
     cancelInvitation.error ??
+    updatePermissions.error ??
     setActiveOrganization.error;
   const pendingInvitations =
     invitations.data?.filter((invitation) => invitation.status === "pending").length ?? 0;
   const admins = members.data?.filter((member) => member.role === "admin").length ?? 0;
+  const organizationLocked = organization.data?.status !== "active";
 
   return (
     <div className="flex w-full min-w-0 max-w-full flex-1 flex-col gap-4">
@@ -310,6 +383,11 @@ function OrganizationManagementPage() {
                     <Badge variant="secondary">
                       <ShieldCheckIcon data-icon="inline-start" />
                       Owner
+                    </Badge>
+                    <Badge
+                      variant={organization.data?.status === "active" ? "outline" : "destructive"}
+                    >
+                      {capitalize(organization.data?.status ?? "active")}
                     </Badge>
                   </div>
                   <CardDescription className="mt-1">
@@ -368,6 +446,17 @@ function OrganizationManagementPage() {
         <SummaryCard label="Pending invitations" value={pendingInvitations} icon={MailPlusIcon} />
       </div>
 
+      {organizationLocked && (
+        <Alert variant="destructive">
+          <AlertCircleIcon />
+          <AlertTitle>Organization is {organization.data?.status}</AlertTitle>
+          <AlertDescription>
+            Records remain available for review, but administrative and academic changes are locked
+            until a platform admin restores Active status.
+          </AlertDescription>
+        </Alert>
+      )}
+
       {notice && (
         <Alert>
           <CheckCircle2Icon />
@@ -384,10 +473,11 @@ function OrganizationManagementPage() {
       )}
 
       <Tabs defaultValue="overview" className="min-w-0 gap-4">
-        <TabsList className="grid w-full grid-cols-3 sm:w-fit">
+        <TabsList className="grid w-full grid-cols-4 sm:w-fit">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="members">Members</TabsTrigger>
           <TabsTrigger value="invitations">Invitations</TabsTrigger>
+          <TabsTrigger value="audit">Audit</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">
@@ -424,6 +514,7 @@ function OrganizationManagementPage() {
                     id="organization-logo"
                     type="file"
                     accept="image/png,image/jpeg"
+                    disabled={organizationLocked}
                     onChange={(event) => {
                       setNotice(null);
                       setLogoFile(event.target.files?.[0] ?? null);
@@ -434,7 +525,7 @@ function OrganizationManagementPage() {
               <CardFooter className="justify-end">
                 <Button
                   type="button"
-                  disabled={!logoFile || uploadLogo.isPending}
+                  disabled={organizationLocked || !logoFile || uploadLogo.isPending}
                   onClick={() => uploadLogo.mutate()}
                 >
                   {uploadLogo.isPending ? (
@@ -470,6 +561,7 @@ function OrganizationManagementPage() {
                         value={details.name}
                         maxLength={100}
                         required
+                        disabled={organizationLocked}
                         onChange={(event) =>
                           setDetails((current) => ({ ...current, name: event.target.value }))
                         }
@@ -482,6 +574,7 @@ function OrganizationManagementPage() {
                         value={details.slug}
                         maxLength={50}
                         required
+                        disabled={organizationLocked}
                         onChange={(event) =>
                           setDetails((current) => ({
                             ...current,
@@ -499,7 +592,10 @@ function OrganizationManagementPage() {
                   <Button
                     type="submit"
                     disabled={
-                      !details.name.trim() || !details.slug.trim() || updateDetails.isPending
+                      organizationLocked ||
+                      !details.name.trim() ||
+                      !details.slug.trim() ||
+                      updateDetails.isPending
                     }
                   >
                     {updateDetails.isPending && <Spinner data-icon="inline-start" />}
@@ -519,7 +615,7 @@ function OrganizationManagementPage() {
                 Manage access for {members.data?.length ?? 0} organization members.
               </CardDescription>
               <CardAction>
-                <Button size="sm" onClick={() => setInviteOpen(true)}>
+                <Button size="sm" disabled={organizationLocked} onClick={() => setInviteOpen(true)}>
                   <MailPlusIcon data-icon="inline-start" />
                   Invite member
                 </Button>
@@ -547,8 +643,9 @@ function OrganizationManagementPage() {
                     <TableRow>
                       <TableHead>Member</TableHead>
                       <TableHead>Role</TableHead>
+                      <TableHead className="hidden lg:table-cell">Permissions</TableHead>
                       <TableHead className="hidden md:table-cell">Joined</TableHead>
-                      <TableHead className="w-14">
+                      <TableHead className="w-24">
                         <span className="sr-only">Actions</span>
                       </TableHead>
                     </TableRow>
@@ -579,7 +676,7 @@ function OrganizationManagementPage() {
                           ) : (
                             <Select
                               value={member.role}
-                              disabled={changeRole.isPending}
+                              disabled={organizationLocked || changeRole.isPending}
                               onValueChange={(value) => {
                                 setNotice(null);
                                 changeRole.mutate({
@@ -603,19 +700,46 @@ function OrganizationManagementPage() {
                             </Select>
                           )}
                         </TableCell>
+                        <TableCell className="hidden lg:table-cell">
+                          {member.role === "owner" || member.role === "admin" ? (
+                            <Badge variant="outline">Full role access</Badge>
+                          ) : member.permissions.length ? (
+                            <Badge variant="secondary">
+                              {member.permissions.length} permission
+                              {member.permissions.length === 1 ? "" : "s"}
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline">No elevated access</Badge>
+                          )}
+                        </TableCell>
                         <TableCell className="hidden text-muted-foreground md:table-cell">
                           {formatDate(member.created_at)}
                         </TableCell>
                         <TableCell>
                           {member.role !== "owner" && (
-                            <Button
-                              variant="ghost"
-                              size="icon-sm"
-                              aria-label={`Remove ${member.user.name}`}
-                              onClick={() => setMemberToRemove(member)}
-                            >
-                              <Trash2Icon />
-                            </Button>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                aria-label={`Configure permissions for ${member.user.name}`}
+                                disabled={organizationLocked}
+                                onClick={() => {
+                                  setPermissionMember(member);
+                                  setSelectedPermissions(member.permissions);
+                                }}
+                              >
+                                <KeyRoundIcon />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                aria-label={`Remove ${member.user.name}`}
+                                disabled={organizationLocked}
+                                onClick={() => setMemberToRemove(member)}
+                              >
+                                <Trash2Icon />
+                              </Button>
+                            </div>
                           )}
                         </TableCell>
                       </TableRow>
@@ -649,7 +773,7 @@ function OrganizationManagementPage() {
                 Track and manage access invitations sent by your team.
               </CardDescription>
               <CardAction>
-                <Button size="sm" onClick={() => setInviteOpen(true)}>
+                <Button size="sm" disabled={organizationLocked} onClick={() => setInviteOpen(true)}>
                   <MailPlusIcon data-icon="inline-start" />
                   New invitation
                 </Button>
@@ -691,7 +815,7 @@ function OrganizationManagementPage() {
                             <Button
                               variant="ghost"
                               size="icon-sm"
-                              disabled={cancelInvitation.isPending}
+                              disabled={organizationLocked || cancelInvitation.isPending}
                               aria-label={`Cancel invitation for ${invitation.email}`}
                               onClick={() => {
                                 setNotice(null);
@@ -715,6 +839,84 @@ function OrganizationManagementPage() {
                     <EmptyTitle>No invitations yet</EmptyTitle>
                     <EmptyDescription>
                       Send an invitation to add administrators or members.
+                    </EmptyDescription>
+                  </EmptyHeader>
+                </Empty>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="audit">
+          <Card className="min-w-0">
+            <CardHeader>
+              <CardTitle>Audit trail</CardTitle>
+              <CardDescription>
+                Immutable history of organization, member, permission, and invitation changes.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {auditLogs.isPending ? (
+                <TableSkeleton />
+              ) : auditLogs.data?.length ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Action</TableHead>
+                      <TableHead>Performed by</TableHead>
+                      <TableHead className="hidden lg:table-cell">Details</TableHead>
+                      <TableHead className="hidden md:table-cell">Date</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {auditLogs.data.map((log) => (
+                      <TableRow key={log.id}>
+                        <TableCell>
+                          <div className="flex min-w-44 items-center gap-2">
+                            <HistoryIcon
+                              className="size-4 text-muted-foreground"
+                              aria-hidden="true"
+                            />
+                            <div className="min-w-0">
+                              <p className="font-medium">{formatAuditAction(log.action)}</p>
+                              <p className="truncate text-xs text-muted-foreground">
+                                {log.target_type}
+                              </p>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="min-w-44">
+                            <p className="truncate font-medium">{log.actor_name}</p>
+                            <p className="truncate text-xs text-muted-foreground">
+                              {log.actor_email}
+                            </p>
+                          </div>
+                        </TableCell>
+                        <TableCell className="hidden max-w-80 lg:table-cell">
+                          <p
+                            className="truncate text-muted-foreground"
+                            title={formatAuditDetails(log.details)}
+                          >
+                            {formatAuditDetails(log.details)}
+                          </p>
+                        </TableCell>
+                        <TableCell className="hidden text-muted-foreground md:table-cell">
+                          {formatDateTime(log.created_at)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <Empty className="border">
+                  <EmptyHeader>
+                    <EmptyMedia variant="icon">
+                      <HistoryIcon />
+                    </EmptyMedia>
+                    <EmptyTitle>No audit events yet</EmptyTitle>
+                    <EmptyDescription>
+                      Administrative changes will appear here automatically.
                     </EmptyDescription>
                   </EmptyHeader>
                 </Empty>
@@ -749,6 +951,7 @@ function OrganizationManagementPage() {
                   autoComplete="email"
                   placeholder="name@example.com"
                   required
+                  disabled={organizationLocked}
                   value={inviteForm.email}
                   onChange={(event) =>
                     setInviteForm((current) => ({ ...current, email: event.target.value }))
@@ -759,6 +962,7 @@ function OrganizationManagementPage() {
                 <FieldLabel htmlFor="invite-role">Organization role</FieldLabel>
                 <Select
                   value={inviteForm.role}
+                  disabled={organizationLocked}
                   onValueChange={(role) =>
                     setInviteForm((current) => ({ ...current, role: role as ManagedRole }))
                   }
@@ -789,9 +993,100 @@ function OrganizationManagementPage() {
               <Button type="button" variant="outline" onClick={() => setInviteOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={!inviteForm.email.trim() || sendInvitation.isPending}>
+              <Button
+                type="submit"
+                disabled={
+                  organizationLocked || !inviteForm.email.trim() || sendInvitation.isPending
+                }
+              >
                 {sendInvitation.isPending && <Spinner data-icon="inline-start" />}
                 Send invitation
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={permissionMember !== null}
+        onOpenChange={(open) => !open && setPermissionMember(null)}
+      >
+        <DialogContent>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              setNotice(null);
+              updatePermissions.mutate();
+            }}
+          >
+            <DialogHeader>
+              <DialogTitle>Configure member permissions</DialogTitle>
+              <DialogDescription>
+                {permissionMember
+                  ? `Choose the capabilities available to ${permissionMember.user.name}.`
+                  : "Choose the capabilities available to this member."}
+              </DialogDescription>
+            </DialogHeader>
+            <FieldGroup className="py-4">
+              {permissionMember?.role === "admin" && (
+                <Alert>
+                  <ShieldCheckIcon />
+                  <AlertTitle>Administrator has full access</AlertTitle>
+                  <AlertDescription>
+                    These custom permissions take effect if this account is changed to Member.
+                  </AlertDescription>
+                </Alert>
+              )}
+              <Field>
+                <FieldLabel>Granted capabilities</FieldLabel>
+                <ToggleGroup
+                  type="multiple"
+                  variant="outline"
+                  value={selectedPermissions}
+                  className="grid w-full grid-cols-1 sm:grid-cols-2"
+                  disabled={organizationLocked}
+                  onValueChange={(permissions) =>
+                    setSelectedPermissions(permissions as api.OrganizationPermission[])
+                  }
+                >
+                  {permissionOptions.map((permission) => (
+                    <ToggleGroupItem
+                      key={permission.value}
+                      value={permission.value}
+                      aria-label={permission.label}
+                      className="h-auto min-h-14 justify-start px-3 text-left whitespace-normal"
+                    >
+                      <span className="flex min-w-0 flex-col items-start gap-0.5">
+                        <span>{permission.label}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {permission.description}
+                        </span>
+                      </span>
+                    </ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
+                <FieldDescription>
+                  Owner and Admin roles retain full access regardless of custom permissions.
+                </FieldDescription>
+              </Field>
+            </FieldGroup>
+            {updatePermissions.error && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertCircleIcon />
+                <AlertTitle>Unable to save permissions</AlertTitle>
+                <AlertDescription>{updatePermissions.error.message}</AlertDescription>
+              </Alert>
+            )}
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setPermissionMember(null)}>
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={organizationLocked || !permissionMember || updatePermissions.isPending}
+              >
+                {updatePermissions.isPending && <Spinner data-icon="inline-start" />}
+                Save permissions
               </Button>
             </DialogFooter>
           </form>
@@ -902,6 +1197,34 @@ function formatDate(value: string) {
     month: "short",
     year: "numeric",
   }).format(new Date(value));
+}
+
+function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat("en-MY", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
+}
+
+function formatAuditAction(value: string) {
+  return value
+    .split(".")
+    .map((part) => capitalize(part))
+    .join(" ");
+}
+
+function formatAuditDetails(details: Record<string, unknown>) {
+  const entries = Object.entries(details);
+  if (!entries.length) return "No additional details";
+  return entries
+    .map(([key, value]) => `${key.replace(/_/g, " ")}: ${formatDetail(value)}`)
+    .join(" · ");
+}
+
+function formatDetail(value: unknown) {
+  if (Array.isArray(value)) return value.join(", ") || "None";
+  if (value === null || value === undefined || value === "") return "None";
+  return String(value);
 }
 
 function capitalize(value: string) {

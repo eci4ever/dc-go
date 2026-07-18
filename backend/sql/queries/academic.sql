@@ -4,6 +4,9 @@ SELECT * FROM member WHERE organization_id = $1 AND user_id = $2;
 -- name: GetAcademicUserRole :one
 SELECT role FROM "user" WHERE id = $1;
 
+-- name: GetAcademicOrganizationStatus :one
+SELECT status FROM organization WHERE id = $1;
+
 -- name: CreateAcademicStudent :one
 INSERT INTO academic_student (id, organization_id, student_no, name, email, program, intake)
 VALUES (

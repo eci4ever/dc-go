@@ -11,6 +11,7 @@ var (
 	ErrInvitationNotFound = errors.New("invitation not found")
 	ErrForbidden          = errors.New("forbidden")
 	ErrOwnerProtected     = errors.New("organization owner cannot be changed or removed")
+	ErrOrganizationLocked = errors.New("organization is not active")
 	ErrLogoTooLarge       = errors.New("logo must be 2 MB or smaller")
 	ErrInvalidLogo        = errors.New("logo must be a valid JPEG or PNG up to 2048 by 2048 pixels")
 	ErrLogoUnavailable    = errors.New("logo storage is unavailable")

@@ -22,7 +22,11 @@ func NewService(repo *Repository, logoStore storage.ObjectStore) *Service {
 }
 
 func (s *Service) Create(ctx context.Context, req CreateOrgRequest, creatorID string) (Organization, error) {
-	return s.repo.Create(ctx, req.Name, req.Slug, req.Logo, creatorID)
+	org, err := s.repo.Create(ctx, req.Name, req.Slug, req.Logo, creatorID)
+	if err == nil {
+		s.recordAudit(ctx, org.ID, creatorID, "organization.created", "organization", &org.ID, map[string]any{"name": org.Name, "slug": org.Slug})
+	}
+	return org, err
 }
 
 func (s *Service) GetByID(ctx context.Context, id, actorID string) (Organization, error) {
@@ -49,20 +53,56 @@ func (s *Service) ListOwned(ctx context.Context, userID string) ([]Organization,
 	return s.repo.ListOwnedByUserID(ctx, userID)
 }
 
+func (s *Service) ListMemberships(ctx context.Context, userID string) ([]Organization, error) {
+	return s.repo.ListMembershipsByUserID(ctx, userID)
+}
+
 func (s *Service) AdminList(ctx context.Context) ([]Organization, error) {
 	return s.repo.ListAll(ctx)
 }
 
+func (s *Service) AdminListAudit(ctx context.Context, orgID string) ([]AuditLog, error) {
+	return s.repo.ListAudit(ctx, orgID, 100, 0)
+}
+
 func (s *Service) AdminCreate(ctx context.Context, req CreateOrgRequest, actorID string) (Organization, error) {
-	return s.repo.Create(ctx, req.Name, req.Slug, req.Logo, actorID)
+	return s.Create(ctx, req, actorID)
 }
 
-func (s *Service) AdminUpdate(ctx context.Context, id string, req UpdateOrgRequest) (Organization, error) {
-	return s.repo.Update(ctx, id, req.Name, req.Slug, req.Logo)
+func (s *Service) AdminUpdate(ctx context.Context, id, actorID string, req UpdateOrgRequest) (Organization, error) {
+	org, err := s.repo.Update(ctx, id, req.Name, req.Slug, req.Logo)
+	if err == nil {
+		s.recordAudit(ctx, id, actorID, "organization.updated", "organization", &id, map[string]any{"name": org.Name, "slug": org.Slug})
+	}
+	return org, err
 }
 
-func (s *Service) AdminSetOwner(ctx context.Context, id string, req SetOwnerRequest) (OrganizationOwner, error) {
-	return s.repo.SetOwner(ctx, id, req.UserID)
+func (s *Service) AdminSetOwner(ctx context.Context, id, actorID string, req SetOwnerRequest) (OrganizationOwner, error) {
+	owner, err := s.repo.SetOwner(ctx, id, req.UserID)
+	if err == nil {
+		s.recordAudit(ctx, id, actorID, "organization.owner_changed", "member", &owner.ID, map[string]any{"owner_name": owner.Name, "owner_email": owner.Email})
+	}
+	return owner, err
+}
+
+func (s *Service) AdminUpdateStatus(ctx context.Context, id, actorID string, req UpdateStatusRequest) (Organization, error) {
+	current, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return Organization{}, err
+	}
+	org, err := s.repo.UpdateStatus(ctx, id, req.Status)
+	if err == nil {
+		s.recordAudit(ctx, id, actorID, "organization.status_changed", "organization", &id, map[string]any{"from": current.Status, "to": req.Status})
+	}
+	return org, err
+}
+
+func (s *Service) AdminUploadLogo(ctx context.Context, id, actorID string, reader io.Reader, size int64) (Organization, error) {
+	org, err := s.UploadLogo(ctx, id, reader, size)
+	if err == nil {
+		s.recordAudit(ctx, id, actorID, "organization.logo_updated", "organization", &id, nil)
+	}
+	return org, err
 }
 
 func (s *Service) AdminDelete(ctx context.Context, id string) error {
@@ -73,14 +113,28 @@ func (s *Service) Update(ctx context.Context, id, actorID string, req UpdateOrgR
 	if err := s.requireRole(ctx, id, actorID, "owner"); err != nil {
 		return Organization{}, err
 	}
-	return s.repo.Update(ctx, id, req.Name, req.Slug, req.Logo)
+	if err := s.requireActive(ctx, id); err != nil {
+		return Organization{}, err
+	}
+	org, err := s.repo.Update(ctx, id, req.Name, req.Slug, req.Logo)
+	if err == nil {
+		s.recordAudit(ctx, id, actorID, "organization.updated", "organization", &id, map[string]any{"name": org.Name, "slug": org.Slug})
+	}
+	return org, err
 }
 
 func (s *Service) OwnerUploadLogo(ctx context.Context, id, actorID string, reader io.Reader, size int64) (Organization, error) {
 	if err := s.requireRole(ctx, id, actorID, "owner"); err != nil {
 		return Organization{}, err
 	}
-	return s.UploadLogo(ctx, id, reader, size)
+	if err := s.requireActive(ctx, id); err != nil {
+		return Organization{}, err
+	}
+	org, err := s.UploadLogo(ctx, id, reader, size)
+	if err == nil {
+		s.recordAudit(ctx, id, actorID, "organization.logo_updated", "organization", &id, nil)
+	}
+	return org, err
 }
 
 func (s *Service) Delete(ctx context.Context, id, actorID string) error {
@@ -135,7 +189,35 @@ func (s *Service) UpdateMemberRole(ctx context.Context, orgID, userID, actorID, 
 	if target.Role == "owner" {
 		return ErrOwnerProtected
 	}
-	return s.repo.UpdateMemberRole(ctx, orgID, userID, role)
+	if err := s.requireActive(ctx, orgID); err != nil {
+		return err
+	}
+	if err := s.repo.UpdateMemberRole(ctx, orgID, userID, role); err != nil {
+		return err
+	}
+	s.recordAudit(ctx, orgID, actorID, "member.role_changed", "member", &userID, map[string]any{"from": target.Role, "to": role})
+	return nil
+}
+
+func (s *Service) UpdateMemberPermissions(ctx context.Context, orgID, userID, actorID string, permissions []string) (Member, error) {
+	if err := s.requireRole(ctx, orgID, actorID, "owner"); err != nil {
+		return Member{}, err
+	}
+	if err := s.requireActive(ctx, orgID); err != nil {
+		return Member{}, err
+	}
+	target, err := s.repo.GetMember(ctx, orgID, userID)
+	if err != nil {
+		return Member{}, err
+	}
+	if target.Role == "owner" {
+		return Member{}, ErrOwnerProtected
+	}
+	updated, err := s.repo.UpdateMemberPermissions(ctx, orgID, userID, permissions)
+	if err == nil {
+		s.recordAudit(ctx, orgID, actorID, "member.permissions_changed", "member", &userID, map[string]any{"from": target.Permissions, "to": permissions})
+	}
+	return updated, err
 }
 
 func (s *Service) RemoveMember(ctx context.Context, orgID, userID, actorID string) error {
@@ -151,14 +233,28 @@ func (s *Service) RemoveMember(ctx context.Context, orgID, userID, actorID strin
 	if target.Role == "owner" {
 		return ErrOwnerProtected
 	}
-	return s.repo.RemoveMember(ctx, orgID, userID)
+	if err := s.requireActive(ctx, orgID); err != nil {
+		return err
+	}
+	if err := s.repo.RemoveMember(ctx, orgID, userID); err != nil {
+		return err
+	}
+	s.recordAudit(ctx, orgID, actorID, "member.removed", "member", &userID, map[string]any{"role": target.Role})
+	return nil
 }
 
 func (s *Service) Invite(ctx context.Context, orgID, email, role, inviterID string) (Invitation, error) {
-	if err := s.requireManager(ctx, orgID, inviterID); err != nil {
+	if err := s.requirePermission(ctx, orgID, inviterID, PermissionMembersManage); err != nil {
 		return Invitation{}, err
 	}
-	return s.repo.CreateInvitation(ctx, orgID, email, role, inviterID, time.Now().Add(invitationTTL))
+	if err := s.requireActive(ctx, orgID); err != nil {
+		return Invitation{}, err
+	}
+	invitation, err := s.repo.CreateInvitation(ctx, orgID, email, role, inviterID, time.Now().Add(invitationTTL))
+	if err == nil {
+		s.recordAudit(ctx, orgID, inviterID, "invitation.created", "invitation", &invitation.ID, map[string]any{"email": email, "role": role})
+	}
+	return invitation, err
 }
 
 func (s *Service) ListInvitations(ctx context.Context, orgID, actorID string) ([]Invitation, error) {
@@ -181,10 +277,24 @@ func (s *Service) CancelInvitation(ctx context.Context, id, actorID string) erro
 	if err != nil {
 		return err
 	}
-	if err := s.requireManager(ctx, inv.OrgID, actorID); err != nil {
+	if err := s.requirePermission(ctx, inv.OrgID, actorID, PermissionMembersManage); err != nil {
 		return err
 	}
-	return s.repo.CancelInvitation(ctx, id)
+	if err := s.requireActive(ctx, inv.OrgID); err != nil {
+		return err
+	}
+	if err := s.repo.CancelInvitation(ctx, id); err != nil {
+		return err
+	}
+	s.recordAudit(ctx, inv.OrgID, actorID, "invitation.cancelled", "invitation", &id, map[string]any{"email": inv.Email})
+	return nil
+}
+
+func (s *Service) ListAudit(ctx context.Context, orgID, actorID string) ([]AuditLog, error) {
+	if err := s.requirePermission(ctx, orgID, actorID, PermissionAuditView); err != nil {
+		return nil, err
+	}
+	return s.repo.ListAudit(ctx, orgID, 100, 0)
 }
 
 func (s *Service) requireMember(ctx context.Context, orgID, actorID string) error {
@@ -216,4 +326,40 @@ func (s *Service) requireManager(ctx context.Context, orgID, actorID string) err
 		return ErrForbidden
 	}
 	return nil
+}
+
+func (s *Service) requirePermission(ctx context.Context, orgID, actorID, permission string) error {
+	m, err := s.repo.GetMember(ctx, orgID, actorID)
+	if err != nil {
+		return ErrForbidden
+	}
+	if m.Role == "owner" || m.Role == "admin" {
+		return nil
+	}
+	for _, granted := range m.Permissions {
+		if granted == permission {
+			return nil
+		}
+	}
+	return ErrForbidden
+}
+
+func (s *Service) requireActive(ctx context.Context, orgID string) error {
+	status, err := s.repo.Status(ctx, orgID)
+	if err != nil {
+		return err
+	}
+	if status != StatusActive {
+		return ErrOrganizationLocked
+	}
+	return nil
+}
+
+func (s *Service) recordAudit(ctx context.Context, orgID, actorID, action, targetType string, targetID *string, details map[string]any) {
+	if details == nil {
+		details = map[string]any{}
+	}
+	if err := s.repo.RecordAudit(ctx, orgID, actorID, action, targetType, targetID, details); err != nil {
+		slog.Warn("failed to record organization audit log", "organization_id", orgID, "action", action, "error", err)
+	}
 }

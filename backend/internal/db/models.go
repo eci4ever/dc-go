@@ -103,6 +103,7 @@ type Member struct {
 	UserID         string             `json:"user_id"`
 	Role           string             `json:"role"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	Permissions    []string           `json:"permissions"`
 }
 
 type Organization struct {
@@ -115,6 +116,20 @@ type Organization struct {
 	LogoKey         pgtype.Text        `json:"logo_key"`
 	LogoContentType pgtype.Text        `json:"logo_content_type"`
 	LogoUpdatedAt   pgtype.Timestamptz `json:"logo_updated_at"`
+	Status          string             `json:"status"`
+}
+
+type OrganizationAuditLog struct {
+	ID             string             `json:"id"`
+	OrganizationID string             `json:"organization_id"`
+	ActorUserID    pgtype.Text        `json:"actor_user_id"`
+	ActorName      string             `json:"actor_name"`
+	ActorEmail     string             `json:"actor_email"`
+	Action         string             `json:"action"`
+	TargetType     string             `json:"target_type"`
+	TargetID       pgtype.Text        `json:"target_id"`
+	Details        []byte             `json:"details"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }
 
 type Session struct {

@@ -12,7 +12,7 @@ import (
 )
 
 const createOrganization = `-- name: CreateOrganization :one
-INSERT INTO "organization" (id, name, slug, logo, metadata) VALUES ($1, $2, $3, $4, $5) RETURNING id, name, slug, logo, created_at, metadata, logo_key, logo_content_type, logo_updated_at
+INSERT INTO "organization" (id, name, slug, logo, metadata) VALUES ($1, $2, $3, $4, $5) RETURNING id, name, slug, logo, created_at, metadata, logo_key, logo_content_type, logo_updated_at, status
 `
 
 type CreateOrganizationParams struct {
@@ -42,6 +42,7 @@ func (q *Queries) CreateOrganization(ctx context.Context, arg CreateOrganization
 		&i.LogoKey,
 		&i.LogoContentType,
 		&i.LogoUpdatedAt,
+		&i.Status,
 	)
 	return i, err
 }
@@ -72,7 +73,7 @@ func (q *Queries) DemoteOrganizationOwners(ctx context.Context, arg DemoteOrgani
 }
 
 const getOrganization = `-- name: GetOrganization :one
-SELECT id, name, slug, logo, created_at, metadata, logo_key, logo_content_type, logo_updated_at FROM "organization" WHERE id = $1
+SELECT id, name, slug, logo, created_at, metadata, logo_key, logo_content_type, logo_updated_at, status FROM "organization" WHERE id = $1
 `
 
 func (q *Queries) GetOrganization(ctx context.Context, id string) (Organization, error) {
@@ -88,12 +89,13 @@ func (q *Queries) GetOrganization(ctx context.Context, id string) (Organization,
 		&i.LogoKey,
 		&i.LogoContentType,
 		&i.LogoUpdatedAt,
+		&i.Status,
 	)
 	return i, err
 }
 
 const getOrganizationBySlug = `-- name: GetOrganizationBySlug :one
-SELECT id, name, slug, logo, created_at, metadata, logo_key, logo_content_type, logo_updated_at FROM "organization" WHERE slug = $1
+SELECT id, name, slug, logo, created_at, metadata, logo_key, logo_content_type, logo_updated_at, status FROM "organization" WHERE slug = $1
 `
 
 func (q *Queries) GetOrganizationBySlug(ctx context.Context, slug string) (Organization, error) {
@@ -109,6 +111,7 @@ func (q *Queries) GetOrganizationBySlug(ctx context.Context, slug string) (Organ
 		&i.LogoKey,
 		&i.LogoContentType,
 		&i.LogoUpdatedAt,
+		&i.Status,
 	)
 	return i, err
 }
@@ -141,8 +144,73 @@ func (q *Queries) GetOrganizationOwner(ctx context.Context, organizationID strin
 	return i, err
 }
 
+const getOrganizationStatus = `-- name: GetOrganizationStatus :one
+SELECT status FROM organization WHERE id = $1
+`
+
+func (q *Queries) GetOrganizationStatus(ctx context.Context, id string) (string, error) {
+	row := q.db.QueryRow(ctx, getOrganizationStatus, id)
+	var status string
+	err := row.Scan(&status)
+	return status, err
+}
+
+const listOrganizationMembershipsByUserID = `-- name: ListOrganizationMembershipsByUserID :many
+SELECT o.id, o.name, o.slug, o.logo, o.created_at, o.metadata, o.logo_key, o.logo_content_type, o.logo_updated_at, o.status, m.role AS membership_role
+FROM "organization" o
+JOIN "member" m ON m.organization_id = o.id
+WHERE m.user_id = $1
+ORDER BY o.name
+`
+
+type ListOrganizationMembershipsByUserIDRow struct {
+	ID              string             `json:"id"`
+	Name            string             `json:"name"`
+	Slug            string             `json:"slug"`
+	Logo            pgtype.Text        `json:"logo"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	Metadata        pgtype.Text        `json:"metadata"`
+	LogoKey         pgtype.Text        `json:"logo_key"`
+	LogoContentType pgtype.Text        `json:"logo_content_type"`
+	LogoUpdatedAt   pgtype.Timestamptz `json:"logo_updated_at"`
+	Status          string             `json:"status"`
+	MembershipRole  string             `json:"membership_role"`
+}
+
+func (q *Queries) ListOrganizationMembershipsByUserID(ctx context.Context, userID string) ([]ListOrganizationMembershipsByUserIDRow, error) {
+	rows, err := q.db.Query(ctx, listOrganizationMembershipsByUserID, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListOrganizationMembershipsByUserIDRow{}
+	for rows.Next() {
+		var i ListOrganizationMembershipsByUserIDRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Slug,
+			&i.Logo,
+			&i.CreatedAt,
+			&i.Metadata,
+			&i.LogoKey,
+			&i.LogoContentType,
+			&i.LogoUpdatedAt,
+			&i.Status,
+			&i.MembershipRole,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listOrganizations = `-- name: ListOrganizations :many
-SELECT id, name, slug, logo, created_at, metadata, logo_key, logo_content_type, logo_updated_at FROM organization ORDER BY name
+SELECT id, name, slug, logo, created_at, metadata, logo_key, logo_content_type, logo_updated_at, status FROM organization ORDER BY name
 `
 
 func (q *Queries) ListOrganizations(ctx context.Context) ([]Organization, error) {
@@ -164,6 +232,7 @@ func (q *Queries) ListOrganizations(ctx context.Context) ([]Organization, error)
 			&i.LogoKey,
 			&i.LogoContentType,
 			&i.LogoUpdatedAt,
+			&i.Status,
 		); err != nil {
 			return nil, err
 		}
@@ -176,7 +245,7 @@ func (q *Queries) ListOrganizations(ctx context.Context) ([]Organization, error)
 }
 
 const listOrganizationsByUserID = `-- name: ListOrganizationsByUserID :many
-SELECT o.id, o.name, o.slug, o.logo, o.created_at, o.metadata, o.logo_key, o.logo_content_type, o.logo_updated_at FROM "organization" o
+SELECT o.id, o.name, o.slug, o.logo, o.created_at, o.metadata, o.logo_key, o.logo_content_type, o.logo_updated_at, o.status FROM "organization" o
 JOIN "member" m ON m.organization_id = o.id
 WHERE m.user_id = $1 ORDER BY o.name
 `
@@ -200,6 +269,7 @@ func (q *Queries) ListOrganizationsByUserID(ctx context.Context, userID string) 
 			&i.LogoKey,
 			&i.LogoContentType,
 			&i.LogoUpdatedAt,
+			&i.Status,
 		); err != nil {
 			return nil, err
 		}
@@ -213,7 +283,7 @@ func (q *Queries) ListOrganizationsByUserID(ctx context.Context, userID string) 
 
 const listOrganizationsWithOwner = `-- name: ListOrganizationsWithOwner :many
 SELECT
-    o.id, o.name, o.slug, o.logo, o.created_at, o.metadata, o.logo_key, o.logo_content_type, o.logo_updated_at,
+    o.id, o.name, o.slug, o.logo, o.created_at, o.metadata, o.logo_key, o.logo_content_type, o.logo_updated_at, o.status,
     owner_user.id AS owner_id,
     owner_user.name AS owner_name,
     owner_user.email AS owner_email,
@@ -240,6 +310,7 @@ type ListOrganizationsWithOwnerRow struct {
 	LogoKey         pgtype.Text        `json:"logo_key"`
 	LogoContentType pgtype.Text        `json:"logo_content_type"`
 	LogoUpdatedAt   pgtype.Timestamptz `json:"logo_updated_at"`
+	Status          string             `json:"status"`
 	OwnerID         pgtype.Text        `json:"owner_id"`
 	OwnerName       pgtype.Text        `json:"owner_name"`
 	OwnerEmail      pgtype.Text        `json:"owner_email"`
@@ -265,6 +336,7 @@ func (q *Queries) ListOrganizationsWithOwner(ctx context.Context) ([]ListOrganiz
 			&i.LogoKey,
 			&i.LogoContentType,
 			&i.LogoUpdatedAt,
+			&i.Status,
 			&i.OwnerID,
 			&i.OwnerName,
 			&i.OwnerEmail,
@@ -281,7 +353,7 @@ func (q *Queries) ListOrganizationsWithOwner(ctx context.Context) ([]ListOrganiz
 }
 
 const listOwnedOrganizationsByUserID = `-- name: ListOwnedOrganizationsByUserID :many
-SELECT o.id, o.name, o.slug, o.logo, o.created_at, o.metadata, o.logo_key, o.logo_content_type, o.logo_updated_at FROM "organization" o
+SELECT o.id, o.name, o.slug, o.logo, o.created_at, o.metadata, o.logo_key, o.logo_content_type, o.logo_updated_at, o.status FROM "organization" o
 JOIN "member" m ON m.organization_id = o.id
 WHERE m.user_id = $1 AND m.role = 'owner'
 ORDER BY o.name
@@ -306,6 +378,7 @@ func (q *Queries) ListOwnedOrganizationsByUserID(ctx context.Context, userID str
 			&i.LogoKey,
 			&i.LogoContentType,
 			&i.LogoUpdatedAt,
+			&i.Status,
 		); err != nil {
 			return nil, err
 		}
@@ -329,7 +402,7 @@ func (q *Queries) LockOrganization(ctx context.Context, id string) (string, erro
 }
 
 const updateOrganization = `-- name: UpdateOrganization :one
-UPDATE "organization" SET name=$2, slug=$3, logo=COALESCE($4, logo), metadata=$5 WHERE id=$1 RETURNING id, name, slug, logo, created_at, metadata, logo_key, logo_content_type, logo_updated_at
+UPDATE "organization" SET name=$2, slug=$3, logo=COALESCE($4, logo), metadata=$5 WHERE id=$1 RETURNING id, name, slug, logo, created_at, metadata, logo_key, logo_content_type, logo_updated_at, status
 `
 
 type UpdateOrganizationParams struct {
@@ -359,6 +432,7 @@ func (q *Queries) UpdateOrganization(ctx context.Context, arg UpdateOrganization
 		&i.LogoKey,
 		&i.LogoContentType,
 		&i.LogoUpdatedAt,
+		&i.Status,
 	)
 	return i, err
 }
@@ -367,7 +441,7 @@ const updateOrganizationLogo = `-- name: UpdateOrganizationLogo :one
 UPDATE "organization"
 SET logo=$2, logo_key=$3, logo_content_type=$4, logo_updated_at=$5
 WHERE id=$1
-RETURNING id, name, slug, logo, created_at, metadata, logo_key, logo_content_type, logo_updated_at
+RETURNING id, name, slug, logo, created_at, metadata, logo_key, logo_content_type, logo_updated_at, status
 `
 
 type UpdateOrganizationLogoParams struct {
@@ -397,6 +471,34 @@ func (q *Queries) UpdateOrganizationLogo(ctx context.Context, arg UpdateOrganiza
 		&i.LogoKey,
 		&i.LogoContentType,
 		&i.LogoUpdatedAt,
+		&i.Status,
+	)
+	return i, err
+}
+
+const updateOrganizationStatus = `-- name: UpdateOrganizationStatus :one
+UPDATE organization SET status = $2 WHERE id = $1 RETURNING id, name, slug, logo, created_at, metadata, logo_key, logo_content_type, logo_updated_at, status
+`
+
+type UpdateOrganizationStatusParams struct {
+	ID     string `json:"id"`
+	Status string `json:"status"`
+}
+
+func (q *Queries) UpdateOrganizationStatus(ctx context.Context, arg UpdateOrganizationStatusParams) (Organization, error) {
+	row := q.db.QueryRow(ctx, updateOrganizationStatus, arg.ID, arg.Status)
+	var i Organization
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Slug,
+		&i.Logo,
+		&i.CreatedAt,
+		&i.Metadata,
+		&i.LogoKey,
+		&i.LogoContentType,
+		&i.LogoUpdatedAt,
+		&i.Status,
 	)
 	return i, err
 }
@@ -406,7 +508,7 @@ INSERT INTO member (id, organization_id, user_id, role)
 VALUES ($1, $2, $3, 'owner')
 ON CONFLICT (organization_id, user_id)
 DO UPDATE SET role = 'owner'
-RETURNING id, organization_id, user_id, role, created_at
+RETURNING id, organization_id, user_id, role, created_at, permissions
 `
 
 type UpsertOrganizationOwnerParams struct {
@@ -424,6 +526,7 @@ func (q *Queries) UpsertOrganizationOwner(ctx context.Context, arg UpsertOrganiz
 		&i.UserID,
 		&i.Role,
 		&i.CreatedAt,
+		&i.Permissions,
 	)
 	return i, err
 }

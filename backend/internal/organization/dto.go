@@ -18,6 +18,14 @@ type SetOwnerRequest struct {
 	UserID string `json:"user_id" validate:"required,uuid"`
 }
 
+type UpdateStatusRequest struct {
+	Status string `json:"status" validate:"required,oneof=active inactive suspended archived"`
+}
+
+type UpdateMemberPermissionsRequest struct {
+	Permissions []string `json:"permissions" validate:"max=5,dive,oneof=members.manage academic.students.manage academic.structure.manage academic.results.manage audit.view"`
+}
+
 type InviteRequest struct {
 	Email string `json:"email" validate:"required,email"`
 	Role  string `json:"role" validate:"required,oneof=admin member"`

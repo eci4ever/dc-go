@@ -26,11 +26,17 @@ func Validate(v any) error {
 				value = value.Elem()
 			}
 		}
+		rules := strings.Split(tag, ",")
+		if value.IsValid() && value.Kind() == reflect.Slice && value.Type().Elem().Kind() == reflect.String {
+			if err := validateStringSlice(rt.Field(i).Name, value, rules); err != nil {
+				return err
+			}
+			continue
+		}
 		text := ""
 		if value.IsValid() && value.Kind() == reflect.String {
 			text = value.String()
 		}
-		rules := strings.Split(tag, ",")
 		if text == "" && slices.Contains(rules, "omitempty") {
 			continue
 		}
@@ -77,4 +83,39 @@ func Validate(v any) error {
 		}
 	}
 	return nil
+}
+
+func validateStringSlice(field string, value reflect.Value, rules []string) error {
+	for index, rule := range rules {
+		switch {
+		case rule == "required" && value.Len() == 0:
+			return fmt.Errorf("%s is required", field)
+		case strings.HasPrefix(rule, "max="):
+			var limit int
+			fmt.Sscanf(strings.TrimPrefix(rule, "max="), "%d", &limit)
+			if value.Len() > limit {
+				return fmt.Errorf("%s has too many values", field)
+			}
+		case rule == "dive":
+			for item := 0; item < value.Len(); item++ {
+				text := value.Index(item).String()
+				for _, itemRule := range rules[index+1:] {
+					if strings.HasPrefix(itemRule, "oneof=") && !allowedValue(text, itemRule) {
+						return fmt.Errorf("%s has an invalid value", field)
+					}
+				}
+			}
+			return nil
+		}
+	}
+	return nil
+}
+
+func allowedValue(value, rule string) bool {
+	for _, allowed := range strings.Fields(strings.TrimPrefix(rule, "oneof=")) {
+		if value == allowed {
+			return true
+		}
+	}
+	return false
 }

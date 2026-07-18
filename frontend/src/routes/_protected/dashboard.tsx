@@ -3,6 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   ArrowRightIcon,
   BadgeCheckIcon,
+  Building2Icon,
   CalendarDaysIcon,
   KeyRoundIcon,
   LaptopIcon,
@@ -28,6 +29,7 @@ import { useAuth } from "@/hooks/use-auth";
 import * as api from "@/lib/api";
 
 const sessionsQueryKey = ["auth", "sessions"] as const;
+const membershipsQueryKey = ["organizations", "mine"] as const;
 
 export const Route = createFileRoute("/_protected/dashboard")({ component: DashboardPage });
 
@@ -39,6 +41,16 @@ function DashboardPage() {
       const response = await api.listSessions();
       if (!response.success || !response.data) {
         throw new Error(response.message ?? "Unable to load sessions");
+      }
+      return response.data;
+    },
+  });
+  const memberships = useQuery({
+    queryKey: membershipsQueryKey,
+    queryFn: async () => {
+      const response = await api.listMyOrganizations();
+      if (!response.success || !response.data) {
+        throw new Error(response.message ?? "Unable to load organization memberships");
       }
       return response.data;
     },
@@ -79,16 +91,37 @@ function DashboardPage() {
               <AvatarImage src={user.image ?? undefined} alt={user.name} />
               <AvatarFallback>{initials(user.name)}</AvatarFallback>
             </Avatar>
-            <div className="flex min-w-0 flex-col gap-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <CardTitle className="text-xl text-balance sm:text-2xl">
-                  Welcome back, {firstName}
-                </CardTitle>
-                <Badge variant="secondary">{user.role === "admin" ? "Admin" : "User"}</Badge>
-              </div>
+            <div className="flex min-w-0 flex-1 flex-col gap-2">
+              <CardTitle className="text-xl text-balance sm:text-2xl">
+                Welcome back, {firstName}
+              </CardTitle>
               <CardDescription className="mt-1 text-pretty">
-                Here is an overview of your account and security.
+                Here is an overview of your account, organizations, and security.
               </CardDescription>
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
+                {memberships.isPending ? (
+                  <>
+                    <Skeleton className="h-5 w-36" />
+                    <Skeleton className="h-5 w-16" />
+                  </>
+                ) : memberships.isError ? (
+                  <Badge variant="outline">Organization access unavailable</Badge>
+                ) : memberships.data.length ? (
+                  memberships.data.map((organization) => (
+                    <div key={organization.id} className="flex min-w-0 items-center gap-1">
+                      <Badge variant="outline" className="min-w-0 max-w-full">
+                        <Building2Icon data-icon="inline-start" aria-hidden="true" />
+                        <span className="truncate">{organization.name}</span>
+                      </Badge>
+                      <Badge variant="secondary">
+                        {formatOrganizationRole(organization.membership_role)}
+                      </Badge>
+                    </div>
+                  ))
+                ) : (
+                  <Badge variant="outline">No organization assigned</Badge>
+                )}
+              </div>
             </div>
           </div>
         </CardHeader>
@@ -282,4 +315,9 @@ function formatDate(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "Unknown";
   return new Intl.DateTimeFormat("en-MY", { dateStyle: "medium" }).format(date);
+}
+
+function formatOrganizationRole(role: api.OrganizationRole | null | undefined) {
+  if (!role) return "Member";
+  return role.charAt(0).toUpperCase() + role.slice(1);
 }

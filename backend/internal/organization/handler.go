@@ -68,6 +68,16 @@ func (h *Handler) ListOwned(c *fiber.Ctx) error {
 	return c.JSON(response.OK(organizations))
 }
 
+func (h *Handler) ListMemberships(c *fiber.Ctx) error {
+	organizations, err := h.svc.ListMemberships(
+		c.UserContext(), c.Locals("user_id").(string),
+	)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(response.Error("internal server error"))
+	}
+	return c.JSON(response.OK(organizations))
+}
+
 func (h *Handler) AdminList(c *fiber.Ctx) error {
 	orgs, err := h.svc.AdminList(c.UserContext())
 	if err != nil {
@@ -102,7 +112,7 @@ func (h *Handler) AdminUpdate(c *fiber.Ctx) error {
 	if err := validator.Validate(req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(response.Error(err.Error()))
 	}
-	org, err := h.svc.AdminUpdate(c.UserContext(), c.Params("id"), req)
+	org, err := h.svc.AdminUpdate(c.UserContext(), c.Params("id"), c.Locals("user_id").(string), req)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			return c.Status(fiber.StatusNotFound).JSON(response.NotFound())
@@ -140,7 +150,9 @@ func (h *Handler) uploadLogo(c *fiber.Ctx, requireOwner bool) error {
 			c.UserContext(), c.Params("id"), c.Locals("user_id").(string), file, header.Size,
 		)
 	} else {
-		org, err = h.svc.UploadLogo(c.UserContext(), c.Params("id"), file, header.Size)
+		org, err = h.svc.AdminUploadLogo(
+			c.UserContext(), c.Params("id"), c.Locals("user_id").(string), file, header.Size,
+		)
 	}
 	if err != nil {
 		switch {
@@ -152,6 +164,8 @@ func (h *Handler) uploadLogo(c *fiber.Ctx, requireOwner bool) error {
 			return c.Status(fiber.StatusNotFound).JSON(response.NotFound())
 		case errors.Is(err, ErrForbidden):
 			return c.Status(fiber.StatusForbidden).JSON(response.Error("forbidden"))
+		case errors.Is(err, ErrOrganizationLocked):
+			return c.Status(fiber.StatusLocked).JSON(response.Error(err.Error()))
 		case errors.Is(err, ErrLogoUnavailable):
 			return c.Status(fiber.StatusServiceUnavailable).JSON(response.Error("logo storage is unavailable"))
 		default:
@@ -170,7 +184,7 @@ func (h *Handler) AdminSetOwner(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(response.Error(err.Error()))
 	}
 
-	owner, err := h.svc.AdminSetOwner(c.UserContext(), c.Params("id"), req)
+	owner, err := h.svc.AdminSetOwner(c.UserContext(), c.Params("id"), c.Locals("user_id").(string), req)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			return c.Status(fiber.StatusNotFound).JSON(response.NotFound())
@@ -178,6 +192,34 @@ func (h *Handler) AdminSetOwner(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(response.Error("internal server error"))
 	}
 	return c.JSON(response.OK(owner))
+}
+
+func (h *Handler) AdminUpdateStatus(c *fiber.Ctx) error {
+	var req UpdateStatusRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(response.Error("invalid request body"))
+	}
+	if err := validator.Validate(req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(response.Error(err.Error()))
+	}
+	org, err := h.svc.AdminUpdateStatus(
+		c.UserContext(), c.Params("id"), c.Locals("user_id").(string), req,
+	)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return c.Status(fiber.StatusNotFound).JSON(response.NotFound())
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(response.Error("internal server error"))
+	}
+	return c.JSON(response.OK(org))
+}
+
+func (h *Handler) AdminListAudit(c *fiber.Ctx) error {
+	logs, err := h.svc.AdminListAudit(c.UserContext(), c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(response.Error("internal server error"))
+	}
+	return c.JSON(response.OK(logs))
 }
 
 func (h *Handler) GetLogo(c *fiber.Ctx) error {
@@ -230,6 +272,8 @@ func (h *Handler) Update(c *fiber.Ctx) error {
 			return c.Status(404).JSON(response.NotFound())
 		case errors.Is(err, ErrForbidden):
 			return c.Status(403).JSON(response.Error("forbidden"))
+		case errors.Is(err, ErrOrganizationLocked):
+			return c.Status(fiber.StatusLocked).JSON(response.Error(err.Error()))
 		case errors.Is(err, ErrSlugExists):
 			return c.Status(409).JSON(response.Error("slug already exists"))
 		}
@@ -293,10 +337,41 @@ func (h *Handler) UpdateMemberRole(c *fiber.Ctx) error {
 			return c.Status(404).JSON(response.NotFound())
 		case errors.Is(err, ErrOwnerProtected):
 			return c.Status(409).JSON(response.Error(err.Error()))
+		case errors.Is(err, ErrOrganizationLocked):
+			return c.Status(fiber.StatusLocked).JSON(response.Error(err.Error()))
 		}
 		return c.Status(500).JSON(response.Error("internal server error"))
 	}
 	return c.JSON(response.OK(nil))
+}
+
+func (h *Handler) UpdateMemberPermissions(c *fiber.Ctx) error {
+	var req UpdateMemberPermissionsRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(response.Error("invalid request body"))
+	}
+	if err := validator.Validate(req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(response.Error(err.Error()))
+	}
+	member, err := h.svc.UpdateMemberPermissions(
+		c.UserContext(), c.Params("id"), c.Params("userID"),
+		c.Locals("user_id").(string), req.Permissions,
+	)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrForbidden):
+			return c.Status(fiber.StatusForbidden).JSON(response.Error("forbidden"))
+		case errors.Is(err, ErrMemberNotFound):
+			return c.Status(fiber.StatusNotFound).JSON(response.NotFound())
+		case errors.Is(err, ErrOwnerProtected):
+			return c.Status(fiber.StatusConflict).JSON(response.Error(err.Error()))
+		case errors.Is(err, ErrOrganizationLocked):
+			return c.Status(fiber.StatusLocked).JSON(response.Error(err.Error()))
+		default:
+			return c.Status(fiber.StatusInternalServerError).JSON(response.Error("internal server error"))
+		}
+	}
+	return c.JSON(response.OK(member))
 }
 
 func (h *Handler) RemoveMember(c *fiber.Ctx) error {
@@ -310,6 +385,8 @@ func (h *Handler) RemoveMember(c *fiber.Ctx) error {
 			return c.Status(404).JSON(response.NotFound())
 		case errors.Is(err, ErrOwnerProtected):
 			return c.Status(409).JSON(response.Error(err.Error()))
+		case errors.Is(err, ErrOrganizationLocked):
+			return c.Status(fiber.StatusLocked).JSON(response.Error(err.Error()))
 		}
 		return c.Status(500).JSON(response.Error("internal server error"))
 	}
@@ -329,12 +406,28 @@ func (h *Handler) Invite(c *fiber.Ctx) error {
 	userID := c.Locals("user_id").(string)
 	inv, err := h.svc.Invite(c.UserContext(), orgID, req.Email, req.Role, userID)
 	if err != nil {
-		if errors.Is(err, ErrForbidden) {
+		switch {
+		case errors.Is(err, ErrForbidden):
 			return c.Status(403).JSON(response.Error("forbidden"))
+		case errors.Is(err, ErrOrganizationLocked):
+			return c.Status(fiber.StatusLocked).JSON(response.Error(err.Error()))
 		}
 		return c.Status(500).JSON(response.Error("internal server error"))
 	}
 	return c.Status(201).JSON(response.Created(inv))
+}
+
+func (h *Handler) ListAudit(c *fiber.Ctx) error {
+	logs, err := h.svc.ListAudit(
+		c.UserContext(), c.Params("id"), c.Locals("user_id").(string),
+	)
+	if err != nil {
+		if errors.Is(err, ErrForbidden) {
+			return c.Status(fiber.StatusForbidden).JSON(response.Error("forbidden"))
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(response.Error("internal server error"))
+	}
+	return c.JSON(response.OK(logs))
 }
 
 func (h *Handler) ListInvitations(c *fiber.Ctx) error {
@@ -372,8 +465,11 @@ func (h *Handler) DeclineInvitation(c *fiber.Ctx) error {
 func (h *Handler) CancelInvitation(c *fiber.Ctx) error {
 	id := c.Params("id")
 	if err := h.svc.CancelInvitation(c.UserContext(), id, c.Locals("user_id").(string)); err != nil {
-		if errors.Is(err, ErrForbidden) {
+		switch {
+		case errors.Is(err, ErrForbidden):
 			return c.Status(403).JSON(response.Error("forbidden"))
+		case errors.Is(err, ErrOrganizationLocked):
+			return c.Status(fiber.StatusLocked).JSON(response.Error(err.Error()))
 		}
 		return c.Status(500).JSON(response.Error("internal server error"))
 	}

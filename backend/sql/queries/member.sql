@@ -12,5 +12,8 @@ INSERT INTO "member" (id, organization_id, user_id, role) VALUES ($1, $2, $3, $4
 -- name: UpdateMemberRole :one
 UPDATE "member" SET role=$3 WHERE organization_id=$1 AND user_id=$2 RETURNING *;
 
+-- name: UpdateMemberPermissions :one
+UPDATE member SET permissions = $3 WHERE organization_id = $1 AND user_id = $2 RETURNING *;
+
 -- name: DeleteMember :exec
 DELETE FROM "member" WHERE organization_id = $1 AND user_id = $2;

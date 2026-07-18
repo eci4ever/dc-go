@@ -7,61 +7,67 @@ import (
 	db "github.com/eci4ever/dc-go/internal/db"
 )
 
+const (
+	permissionStudents  = "academic.students.manage"
+	permissionStructure = "academic.structure.manage"
+	permissionResults   = "academic.results.manage"
+)
+
 type Service struct{ repo *Repository }
 
 func NewService(repo *Repository) *Service { return &Service{repo: repo} }
 
 func (s *Service) CreateStudent(ctx context.Context, orgID, actorID string, req CreateStudentRequest) (Student, error) {
-	if err := s.manager(ctx, orgID, actorID); err != nil {
+	if err := s.authorize(ctx, orgID, actorID, permissionStudents, true); err != nil {
 		return Student{}, err
 	}
 	return s.repo.CreateStudent(ctx, orgID, req)
 }
 
 func (s *Service) ListStudents(ctx context.Context, orgID, actorID string) ([]Student, error) {
-	if err := s.manager(ctx, orgID, actorID); err != nil {
+	if err := s.authorize(ctx, orgID, actorID, permissionStudents, false); err != nil {
 		return nil, err
 	}
 	return s.repo.ListStudents(ctx, orgID)
 }
 
 func (s *Service) CreateSemester(ctx context.Context, orgID, actorID string, req CreateSemesterRequest) (Semester, error) {
-	if err := s.manager(ctx, orgID, actorID); err != nil {
+	if err := s.authorize(ctx, orgID, actorID, permissionStructure, true); err != nil {
 		return Semester{}, err
 	}
 	return s.repo.CreateSemester(ctx, orgID, req)
 }
 
 func (s *Service) ListSemesters(ctx context.Context, orgID, actorID string) ([]Semester, error) {
-	if err := s.manager(ctx, orgID, actorID); err != nil {
+	if err := s.authorize(ctx, orgID, actorID, permissionStructure, false); err != nil {
 		return nil, err
 	}
 	return s.repo.ListSemesters(ctx, orgID)
 }
 
 func (s *Service) CreateCourse(ctx context.Context, orgID, actorID string, req CreateCourseRequest) (Course, error) {
-	if err := s.manager(ctx, orgID, actorID); err != nil {
+	if err := s.authorize(ctx, orgID, actorID, permissionStructure, true); err != nil {
 		return Course{}, err
 	}
 	return s.repo.CreateCourse(ctx, orgID, req)
 }
 
 func (s *Service) ListCourses(ctx context.Context, orgID, actorID string) ([]Course, error) {
-	if err := s.manager(ctx, orgID, actorID); err != nil {
+	if err := s.authorize(ctx, orgID, actorID, permissionStructure, false); err != nil {
 		return nil, err
 	}
 	return s.repo.ListCourses(ctx, orgID)
 }
 
 func (s *Service) ListGradeScale(ctx context.Context, orgID, actorID string) ([]GradeScale, error) {
-	if err := s.manager(ctx, orgID, actorID); err != nil {
+	if err := s.authorize(ctx, orgID, actorID, permissionStructure, false); err != nil {
 		return nil, err
 	}
 	return s.repo.ListGradeScale(ctx, orgID)
 }
 
 func (s *Service) UpsertResult(ctx context.Context, orgID, actorID string, req UpsertResultRequest) (Result, error) {
-	if err := s.manager(ctx, orgID, actorID); err != nil {
+	if err := s.authorize(ctx, orgID, actorID, permissionResults, true); err != nil {
 		return Result{}, err
 	}
 	if _, err := s.repo.GetStudent(ctx, orgID, req.StudentID); err != nil {
@@ -82,7 +88,7 @@ func (s *Service) UpsertResult(ctx context.Context, orgID, actorID string, req U
 }
 
 func (s *Service) Transcript(ctx context.Context, orgID, studentID, actorID string) (Transcript, error) {
-	if err := s.manager(ctx, orgID, actorID); err != nil {
+	if err := s.authorize(ctx, orgID, actorID, permissionResults, false); err != nil {
 		return Transcript{}, err
 	}
 	student, err := s.repo.GetStudent(ctx, orgID, studentID)
@@ -97,6 +103,19 @@ func (s *Service) Transcript(ctx context.Context, orgID, studentID, actorID stri
 }
 
 func (s *Service) manager(ctx context.Context, orgID, actorID string) error {
+	return s.authorize(ctx, orgID, actorID, permissionResults, false)
+}
+
+func (s *Service) authorize(ctx context.Context, orgID, actorID, permission string, write bool) error {
+	if write {
+		status, err := s.repo.OrganizationStatus(ctx, orgID)
+		if err != nil {
+			return err
+		}
+		if status != "active" {
+			return ErrOrganizationLocked
+		}
+	}
 	globalRole, err := s.repo.GlobalUserRole(ctx, actorID)
 	if err != nil {
 		return err
@@ -104,14 +123,23 @@ func (s *Service) manager(ctx context.Context, orgID, actorID string) error {
 	if globalRole == "admin" {
 		return nil
 	}
-	role, err := s.repo.MemberRole(ctx, orgID, actorID)
+	access, err := s.repo.MemberAccess(ctx, orgID, actorID)
 	if err != nil {
 		return err
 	}
-	if role != "owner" && role != "admin" {
-		return ErrForbidden
+	if access.Role == "owner" || access.Role == "admin" {
+		return nil
 	}
-	return nil
+	for _, granted := range access.Permissions {
+		if granted == permission {
+			return nil
+		}
+		if !write && granted == permissionResults &&
+			(permission == permissionStudents || permission == permissionStructure) {
+			return nil
+		}
+	}
+	return ErrForbidden
 }
 
 func calculateTranscript(student Student, rows []db.ListAcademicResultsByStudentRow) Transcript {
