@@ -3,12 +3,13 @@ package validator
 import "testing"
 
 type validationFixture struct {
-	Name     string  `validate:"required,min=2,max=10"`
-	Email    string  `validate:"required,email"`
-	Role     string  `validate:"required,oneof=user admin"`
-	Image    *string `validate:"omitempty,url,max=100"`
-	Password string  `validate:"required,min=8"`
-	New      string  `validate:"required,min=8,nefield=Password"`
+	Name        string   `validate:"required,min=2,max=10"`
+	Email       string   `validate:"required,email"`
+	Role        string   `validate:"required,oneof=user admin"`
+	Image       *string  `validate:"omitempty,url,max=100"`
+	Password    string   `validate:"required,min=8"`
+	New         string   `validate:"required,min=8,nefield=Password"`
+	Permissions []string `validate:"max=2,dive,oneof=read write"`
 }
 
 func validFixture() validationFixture {
@@ -51,5 +52,23 @@ func TestValidateRejectsInvalidRules(t *testing.T) {
 				t.Fatal("Validate() should reject the value")
 			}
 		})
+	}
+}
+
+func TestValidateStringSlice(t *testing.T) {
+	fixture := validFixture()
+	fixture.Permissions = []string{"read", "write"}
+	if err := Validate(fixture); err != nil {
+		t.Fatalf("Validate() error = %v", err)
+	}
+
+	fixture.Permissions = []string{"unknown"}
+	if err := Validate(fixture); err == nil {
+		t.Fatal("Validate() should reject an invalid slice item")
+	}
+
+	fixture.Permissions = []string{"read", "write", "read"}
+	if err := Validate(fixture); err == nil {
+		t.Fatal("Validate() should reject too many slice items")
 	}
 }

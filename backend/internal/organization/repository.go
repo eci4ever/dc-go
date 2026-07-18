@@ -2,6 +2,7 @@ package organization
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"time"
@@ -66,6 +67,14 @@ func (r *Repository) GetByID(ctx context.Context, id string) (Organization, erro
 	return mapOrg(org), nil
 }
 
+func (r *Repository) Status(ctx context.Context, id string) (string, error) {
+	status, err := r.q.GetOrganizationStatus(ctx, id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", ErrNotFound
+	}
+	return status, err
+}
+
 func (r *Repository) GetBySlug(ctx context.Context, slug string) (Organization, error) {
 	org, err := r.q.GetOrganizationBySlug(ctx, slug)
 	if err != nil {
@@ -87,6 +96,30 @@ func (r *Repository) ListByUserID(ctx context.Context, userID string) ([]Organiz
 		orgs[i] = mapOrg(org)
 	}
 	return orgs, nil
+}
+
+func (r *Repository) ListMembershipsByUserID(ctx context.Context, userID string) ([]Organization, error) {
+	rows, err := r.q.ListOrganizationMembershipsByUserID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	organizations := make([]Organization, len(rows))
+	for i, row := range rows {
+		role := row.MembershipRole
+		organizations[i] = Organization{
+			ID:              row.ID,
+			Name:            row.Name,
+			Slug:            row.Slug,
+			Logo:            pgtextPtr(&row.Logo),
+			CreatedAt:       row.CreatedAt.Time.Format(time3339),
+			LogoKey:         pgtextPtr(&row.LogoKey),
+			LogoContentType: pgtextPtr(&row.LogoContentType),
+			LogoUpdatedAt:   pgtimestamptzPtr(&row.LogoUpdatedAt),
+			MembershipRole:  &role,
+			Status:          row.Status,
+		}
+	}
+	return organizations, nil
 }
 
 func (r *Repository) ListOwnedByUserID(ctx context.Context, userID string) ([]Organization, error) {
@@ -117,6 +150,7 @@ func (r *Repository) ListAll(ctx context.Context) ([]Organization, error) {
 			LogoKey:         pgtextPtr(&org.LogoKey),
 			LogoContentType: pgtextPtr(&org.LogoContentType),
 			LogoUpdatedAt:   pgtimestamptzPtr(&org.LogoUpdatedAt),
+			Status:          org.Status,
 		}
 		if org.OwnerID.Valid {
 			orgs[i].Owner = &OrganizationOwner{
@@ -128,6 +162,17 @@ func (r *Repository) ListAll(ctx context.Context) ([]Organization, error) {
 		}
 	}
 	return orgs, nil
+}
+
+func (r *Repository) UpdateStatus(ctx context.Context, id, status string) (Organization, error) {
+	org, err := r.q.UpdateOrganizationStatus(ctx, db.UpdateOrganizationStatusParams{ID: id, Status: status})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Organization{}, ErrNotFound
+	}
+	if err != nil {
+		return Organization{}, err
+	}
+	return mapOrg(org), nil
 }
 
 func (r *Repository) SetOwner(ctx context.Context, orgID, userID string) (OrganizationOwner, error) {
@@ -243,11 +288,12 @@ func (r *Repository) GetMember(ctx context.Context, orgID, userID string) (Membe
 		return Member{}, err
 	}
 	return Member{
-		ID:        m.ID,
-		OrgID:     m.OrganizationID,
-		UserID:    m.UserID,
-		Role:      m.Role,
-		CreatedAt: m.CreatedAt.Time.Format(time3339),
+		ID:          m.ID,
+		OrgID:       m.OrganizationID,
+		UserID:      m.UserID,
+		Role:        m.Role,
+		CreatedAt:   m.CreatedAt.Time.Format(time3339),
+		Permissions: m.Permissions,
 	}, nil
 }
 
@@ -259,11 +305,12 @@ func (r *Repository) GetMembers(ctx context.Context, orgID string) ([]Member, er
 	members := make([]Member, len(rows))
 	for i, m := range rows {
 		members[i] = Member{
-			ID:        m.ID,
-			OrgID:     m.OrganizationID,
-			UserID:    m.UserID,
-			Role:      m.Role,
-			CreatedAt: m.CreatedAt.Time.Format(time3339),
+			ID:          m.ID,
+			OrgID:       m.OrganizationID,
+			UserID:      m.UserID,
+			Role:        m.Role,
+			CreatedAt:   m.CreatedAt.Time.Format(time3339),
+			Permissions: m.Permissions,
 		}
 		members[i].User.Name = m.Name
 		members[i].User.Email = m.Email
@@ -279,6 +326,69 @@ func (r *Repository) UpdateMemberRole(ctx context.Context, orgID, userID, role s
 		Role:           role,
 	})
 	return err
+}
+
+func (r *Repository) UpdateMemberPermissions(ctx context.Context, orgID, userID string, permissions []string) (Member, error) {
+	member, err := r.q.UpdateMemberPermissions(ctx, db.UpdateMemberPermissionsParams{
+		OrganizationID: orgID,
+		UserID:         userID,
+		Permissions:    permissions,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Member{}, ErrMemberNotFound
+	}
+	if err != nil {
+		return Member{}, err
+	}
+	return mapMember(member), nil
+}
+
+func (r *Repository) RecordAudit(ctx context.Context, orgID, actorID, action, targetType string, targetID *string, details map[string]any) error {
+	payload, err := json.Marshal(details)
+	if err != nil {
+		return err
+	}
+	_, err = r.q.CreateOrganizationAuditLog(ctx, db.CreateOrganizationAuditLogParams{
+		ID:             uuid.NewString(),
+		OrganizationID: orgID,
+		Action:         action,
+		TargetType:     targetType,
+		TargetID:       pgtext(targetID),
+		Details:        payload,
+		ActorUserID:    actorID,
+	})
+	return err
+}
+
+func (r *Repository) ListAudit(ctx context.Context, orgID string, limit, offset int32) ([]AuditLog, error) {
+	rows, err := r.q.ListOrganizationAuditLogs(ctx, db.ListOrganizationAuditLogsParams{
+		OrganizationID: orgID,
+		Limit:          limit,
+		Offset:         offset,
+	})
+	if err != nil {
+		return nil, err
+	}
+	logs := make([]AuditLog, len(rows))
+	for i, row := range rows {
+		details := map[string]any{}
+		if err := json.Unmarshal(row.Details, &details); err != nil {
+			return nil, err
+		}
+		logs[i] = AuditLog{
+			ID:             row.ID,
+			OrganizationID: row.OrganizationID,
+			ActorUserID:    pgtextPtr(&row.ActorUserID),
+			ActorName:      row.ActorName,
+			ActorEmail:     row.ActorEmail,
+			Action:         row.Action,
+			TargetType:     row.TargetType,
+			TargetID:       pgtextPtr(&row.TargetID),
+			Details:        details,
+			CreatedAt:      row.CreatedAt.Time.Format(time3339),
+		}
+	}
+	return logs, nil
 }
 
 func (r *Repository) RemoveMember(ctx context.Context, orgID, userID string) error {
@@ -441,6 +551,18 @@ func mapOrg(o db.Organization) Organization {
 		LogoKey:         pgtextPtr(&o.LogoKey),
 		LogoContentType: pgtextPtr(&o.LogoContentType),
 		LogoUpdatedAt:   pgtimestamptzPtr(&o.LogoUpdatedAt),
+		Status:          o.Status,
+	}
+}
+
+func mapMember(m db.Member) Member {
+	return Member{
+		ID:          m.ID,
+		OrgID:       m.OrganizationID,
+		UserID:      m.UserID,
+		Role:        m.Role,
+		CreatedAt:   m.CreatedAt.Time.Format(time3339),
+		Permissions: m.Permissions,
 	}
 }
 

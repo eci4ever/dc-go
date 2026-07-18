@@ -7,6 +7,13 @@ interface ApiResponse<T> {
 }
 type UserRole = "user" | "admin";
 type OrganizationRole = "owner" | "admin" | "member";
+type OrganizationStatus = "active" | "inactive" | "suspended" | "archived";
+type OrganizationPermission =
+  | "members.manage"
+  | "academic.students.manage"
+  | "academic.structure.manage"
+  | "academic.results.manage"
+  | "audit.view";
 
 interface User {
   id: string;
@@ -45,6 +52,8 @@ interface Organization {
   slug: string;
   logo?: string | null;
   owner?: OrganizationOwner | null;
+  membership_role?: OrganizationRole | null;
+  status: OrganizationStatus;
   created_at: string;
 }
 interface OrganizationOwner {
@@ -58,12 +67,25 @@ interface OrganizationMember {
   org_id: string;
   user_id: string;
   role: OrganizationRole;
+  permissions: OrganizationPermission[];
   created_at: string;
   user: {
     name: string;
     email: string;
     image?: string | null;
   };
+}
+interface OrganizationAuditLog {
+  id: string;
+  organization_id: string;
+  actor_user_id?: string | null;
+  actor_name: string;
+  actor_email: string;
+  action: string;
+  target_type: string;
+  target_id?: string | null;
+  details: Record<string, unknown>;
+  created_at: string;
 }
 interface OrganizationInvitation {
   id: string;
@@ -238,6 +260,7 @@ export const listSessions = () => request<ManagedSession[]>("/auth/sessions");
 export const revokeSession = (id: string) =>
   request<void>(`/auth/sessions/${id}`, { method: "DELETE" });
 export const listOrganizations = () => request<Organization[]>("/organizations");
+export const listMyOrganizations = () => request<Organization[]>("/organizations/mine");
 export const listOwnedOrganizations = () => request<Organization[]>("/organizations/owned");
 export const getOrganization = (id: string) => request<Organization>(`/organizations/${id}`);
 export const updateOrganization = (id: string, name: string, slug: string) =>
@@ -252,6 +275,8 @@ export const uploadOrganizationLogo = (id: string, file: File) => {
 };
 export const listOrganizationMembers = (id: string) =>
   request<OrganizationMember[]>(`/organizations/${id}/members`);
+export const getCurrentOrganizationMember = (id: string) =>
+  request<OrganizationMember>(`/organizations/${id}/members/me`);
 export const updateOrganizationMemberRole = (
   id: string,
   userId: string,
@@ -263,6 +288,17 @@ export const updateOrganizationMemberRole = (
   });
 export const removeOrganizationMember = (id: string, userId: string) =>
   request<void>(`/organizations/${id}/members/${userId}`, { method: "DELETE" });
+export const updateOrganizationMemberPermissions = (
+  id: string,
+  userId: string,
+  permissions: OrganizationPermission[],
+) =>
+  request<OrganizationMember>(`/organizations/${id}/members/${userId}/permissions`, {
+    method: "PUT",
+    body: JSON.stringify({ permissions }),
+  });
+export const listOrganizationAuditLogs = (id: string) =>
+  request<OrganizationAuditLog[]>(`/organizations/${id}/audit-logs`);
 export const listOrganizationInvitations = (id: string) =>
   request<OrganizationInvitation[]>(`/organizations/${id}/invitations`);
 export const inviteOrganizationMember = (
@@ -296,6 +332,11 @@ export const setAdminOrganizationOwner = (id: string, userId: string) =>
   request<OrganizationOwner>(`/admin/organizations/${id}/owner`, {
     method: "PUT",
     body: JSON.stringify({ user_id: userId }),
+  });
+export const updateAdminOrganizationStatus = (id: string, status: OrganizationStatus) =>
+  request<Organization>(`/admin/organizations/${id}/status`, {
+    method: "PUT",
+    body: JSON.stringify({ status }),
   });
 export const deleteAdminOrganization = (id: string) =>
   request<void>(`/admin/organizations/${id}`, { method: "DELETE" });
@@ -355,6 +396,8 @@ export const getTranscript = (organizationId: string, studentId: string) =>
 export type {
   UserRole,
   OrganizationRole,
+  OrganizationStatus,
+  OrganizationPermission,
   User,
   Session,
   SessionData,
@@ -363,6 +406,7 @@ export type {
   OrganizationOwner,
   OrganizationMember,
   OrganizationInvitation,
+  OrganizationAuditLog,
   ApiResponse,
   AcademicStudent,
   AcademicSemester,

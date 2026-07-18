@@ -120,6 +120,8 @@ func academicError(c *fiber.Ctx, err error) error {
 		return c.Status(fiber.StatusNotFound).JSON(response.NotFound())
 	case errors.Is(err, ErrConflict):
 		return c.Status(fiber.StatusConflict).JSON(response.Error("record already exists"))
+	case errors.Is(err, ErrOrganizationLocked):
+		return c.Status(fiber.StatusLocked).JSON(response.Error(err.Error()))
 	default:
 		return c.Status(fiber.StatusInternalServerError).JSON(response.Error("internal server error"))
 	}

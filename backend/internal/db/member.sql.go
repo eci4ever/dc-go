@@ -12,7 +12,7 @@ import (
 )
 
 const createMember = `-- name: CreateMember :one
-INSERT INTO "member" (id, organization_id, user_id, role) VALUES ($1, $2, $3, $4) RETURNING id, organization_id, user_id, role, created_at
+INSERT INTO "member" (id, organization_id, user_id, role) VALUES ($1, $2, $3, $4) RETURNING id, organization_id, user_id, role, created_at, permissions
 `
 
 type CreateMemberParams struct {
@@ -36,6 +36,7 @@ func (q *Queries) CreateMember(ctx context.Context, arg CreateMemberParams) (Mem
 		&i.UserID,
 		&i.Role,
 		&i.CreatedAt,
+		&i.Permissions,
 	)
 	return i, err
 }
@@ -55,7 +56,7 @@ func (q *Queries) DeleteMember(ctx context.Context, arg DeleteMemberParams) erro
 }
 
 const getMember = `-- name: GetMember :one
-SELECT id, organization_id, user_id, role, created_at FROM "member" WHERE organization_id = $1 AND user_id = $2
+SELECT id, organization_id, user_id, role, created_at, permissions FROM "member" WHERE organization_id = $1 AND user_id = $2
 `
 
 type GetMemberParams struct {
@@ -72,12 +73,13 @@ func (q *Queries) GetMember(ctx context.Context, arg GetMemberParams) (Member, e
 		&i.UserID,
 		&i.Role,
 		&i.CreatedAt,
+		&i.Permissions,
 	)
 	return i, err
 }
 
 const listMembersByOrganizationID = `-- name: ListMembersByOrganizationID :many
-SELECT m.id, m.organization_id, m.user_id, m.role, m.created_at, u.name, u.email, u.image FROM "member" m
+SELECT m.id, m.organization_id, m.user_id, m.role, m.created_at, m.permissions, u.name, u.email, u.image FROM "member" m
 JOIN "user" u ON u.id = m.user_id
 WHERE m.organization_id = $1 ORDER BY u.name
 `
@@ -88,6 +90,7 @@ type ListMembersByOrganizationIDRow struct {
 	UserID         string             `json:"user_id"`
 	Role           string             `json:"role"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	Permissions    []string           `json:"permissions"`
 	Name           string             `json:"name"`
 	Email          string             `json:"email"`
 	Image          pgtype.Text        `json:"image"`
@@ -108,6 +111,7 @@ func (q *Queries) ListMembersByOrganizationID(ctx context.Context, organizationI
 			&i.UserID,
 			&i.Role,
 			&i.CreatedAt,
+			&i.Permissions,
 			&i.Name,
 			&i.Email,
 			&i.Image,
@@ -122,8 +126,32 @@ func (q *Queries) ListMembersByOrganizationID(ctx context.Context, organizationI
 	return items, nil
 }
 
+const updateMemberPermissions = `-- name: UpdateMemberPermissions :one
+UPDATE member SET permissions = $3 WHERE organization_id = $1 AND user_id = $2 RETURNING id, organization_id, user_id, role, created_at, permissions
+`
+
+type UpdateMemberPermissionsParams struct {
+	OrganizationID string   `json:"organization_id"`
+	UserID         string   `json:"user_id"`
+	Permissions    []string `json:"permissions"`
+}
+
+func (q *Queries) UpdateMemberPermissions(ctx context.Context, arg UpdateMemberPermissionsParams) (Member, error) {
+	row := q.db.QueryRow(ctx, updateMemberPermissions, arg.OrganizationID, arg.UserID, arg.Permissions)
+	var i Member
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.UserID,
+		&i.Role,
+		&i.CreatedAt,
+		&i.Permissions,
+	)
+	return i, err
+}
+
 const updateMemberRole = `-- name: UpdateMemberRole :one
-UPDATE "member" SET role=$3 WHERE organization_id=$1 AND user_id=$2 RETURNING id, organization_id, user_id, role, created_at
+UPDATE "member" SET role=$3 WHERE organization_id=$1 AND user_id=$2 RETURNING id, organization_id, user_id, role, created_at, permissions
 `
 
 type UpdateMemberRoleParams struct {
@@ -141,6 +169,7 @@ func (q *Queries) UpdateMemberRole(ctx context.Context, arg UpdateMemberRolePara
 		&i.UserID,
 		&i.Role,
 		&i.CreatedAt,
+		&i.Permissions,
 	)
 	return i, err
 }

@@ -13,6 +13,11 @@ import (
 
 type Repository struct{ q *db.Queries }
 
+type MemberAccess struct {
+	Role        string
+	Permissions []string
+}
+
 func NewRepository(pool *pgxpool.Pool) *Repository { return &Repository{q: db.New(pool)} }
 
 func (r *Repository) MemberRole(ctx context.Context, orgID, userID string) (string, error) {
@@ -24,6 +29,25 @@ func (r *Repository) MemberRole(ctx context.Context, orgID, userID string) (stri
 		return "", err
 	}
 	return m.Role, nil
+}
+
+func (r *Repository) MemberAccess(ctx context.Context, orgID, userID string) (MemberAccess, error) {
+	m, err := r.q.GetAcademicMember(ctx, db.GetAcademicMemberParams{OrganizationID: orgID, UserID: userID})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return MemberAccess{}, nil
+	}
+	if err != nil {
+		return MemberAccess{}, err
+	}
+	return MemberAccess{Role: m.Role, Permissions: m.Permissions}, nil
+}
+
+func (r *Repository) OrganizationStatus(ctx context.Context, orgID string) (string, error) {
+	status, err := r.q.GetAcademicOrganizationStatus(ctx, orgID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", ErrNotFound
+	}
+	return status, err
 }
 
 func (r *Repository) GlobalUserRole(ctx context.Context, userID string) (string, error) {

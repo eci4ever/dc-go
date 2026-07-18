@@ -69,9 +69,24 @@ export function AppSidebar({ user, session, onLogout, ...props }: AppSidebarProp
     },
   });
   const ownsOrganization = (ownedOrganizations.data?.length ?? 0) > 0;
+  const activeMembership = useQuery({
+    queryKey: ["organization", session.session.activeOrganizationId, "member", "me"],
+    enabled: Boolean(session.session.activeOrganizationId),
+    queryFn: async () => {
+      const response = await api.getCurrentOrganizationMember(
+        session.session.activeOrganizationId!,
+      );
+      if (!response.success || !response.data) return null;
+      return response.data;
+    },
+  });
+  const hasAcademicPermission = activeMembership.data?.permissions.some((permission) =>
+    permission.startsWith("academic."),
+  );
   const canManageAcademic =
     Boolean(session.session.activeOrganizationId) &&
-    ["owner", "admin"].includes(session.session.activeOrganizationRole ?? "");
+    (["owner", "admin"].includes(session.session.activeOrganizationRole ?? "") ||
+      hasAcademicPermission);
   const instituteItems = [
     ...(ownsOrganization ? [organizationItem] : []),
     ...(canManageAcademic ? [academicItem] : []),

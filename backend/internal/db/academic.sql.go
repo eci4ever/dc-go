@@ -186,7 +186,7 @@ func (q *Queries) GetAcademicCourse(ctx context.Context, arg GetAcademicCoursePa
 }
 
 const getAcademicMember = `-- name: GetAcademicMember :one
-SELECT id, organization_id, user_id, role, created_at FROM member WHERE organization_id = $1 AND user_id = $2
+SELECT id, organization_id, user_id, role, created_at, permissions FROM member WHERE organization_id = $1 AND user_id = $2
 `
 
 type GetAcademicMemberParams struct {
@@ -203,8 +203,20 @@ func (q *Queries) GetAcademicMember(ctx context.Context, arg GetAcademicMemberPa
 		&i.UserID,
 		&i.Role,
 		&i.CreatedAt,
+		&i.Permissions,
 	)
 	return i, err
+}
+
+const getAcademicOrganizationStatus = `-- name: GetAcademicOrganizationStatus :one
+SELECT status FROM organization WHERE id = $1
+`
+
+func (q *Queries) GetAcademicOrganizationStatus(ctx context.Context, id string) (string, error) {
+	row := q.db.QueryRow(ctx, getAcademicOrganizationStatus, id)
+	var status string
+	err := row.Scan(&status)
+	return status, err
 }
 
 const getAcademicSemester = `-- name: GetAcademicSemester :one

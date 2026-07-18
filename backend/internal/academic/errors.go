@@ -3,7 +3,8 @@ package academic
 import "errors"
 
 var (
-	ErrForbidden = errors.New("forbidden")
-	ErrNotFound  = errors.New("academic record not found")
-	ErrConflict  = errors.New("academic record already exists")
+	ErrForbidden          = errors.New("forbidden")
+	ErrNotFound           = errors.New("academic record not found")
+	ErrConflict           = errors.New("academic record already exists")
+	ErrOrganizationLocked = errors.New("organization is not active")
 )

@@ -76,6 +76,12 @@ import type { Organization } from "@/lib/api";
 import { sessionQueryOptions } from "@/lib/session";
 
 const organizationsQueryKey = ["admin", "organizations"] as const;
+const organizationStatuses: api.OrganizationStatus[] = [
+  "active",
+  "inactive",
+  "suspended",
+  "archived",
+];
 const usersQueryKey = ["admin", "users"] as const;
 const pageSize = 10;
 const maxLogoBytes = 2 * 1024 * 1024;
@@ -197,6 +203,21 @@ function OrganizationsPage() {
       setOrganizationToDelete(null);
     },
   });
+  const updateStatus = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: api.OrganizationStatus }) =>
+      load(api.updateAdminOrganizationStatus(id, status)),
+    onSuccess: (saved) => {
+      queryClient.setQueryData<Organization[]>(organizationsQueryKey, (current = []) =>
+        current.map((organization) =>
+          organization.id === saved.id
+            ? { ...organization, ...saved, owner: saved.owner ?? organization.owner }
+            : organization,
+        ),
+      );
+      queryClient.invalidateQueries({ queryKey: ["organizations"] });
+      queryClient.invalidateQueries({ queryKey: ["organization", saved.id] });
+    },
+  });
 
   const filteredOrganizations = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -290,12 +311,15 @@ function OrganizationsPage() {
         </Button>
       </div>
 
-      {(organizations.error || users.error || deleteOrganization.error) && (
+      {(organizations.error || users.error || deleteOrganization.error || updateStatus.error) && (
         <Alert variant="destructive">
           <AlertCircleIcon />
           <AlertTitle>Organization operation failed</AlertTitle>
           <AlertDescription>
-            {(organizations.error ?? users.error ?? deleteOrganization.error)?.message}
+            {
+              (organizations.error ?? users.error ?? deleteOrganization.error ?? updateStatus.error)
+                ?.message
+            }
           </AlertDescription>
         </Alert>
       )}
@@ -333,12 +357,13 @@ function OrganizationsPage() {
             </div>
           ) : pageOrganizations.length ? (
             <div className="min-w-0 overflow-hidden rounded-md border">
-              <Table className="min-w-224">
+              <Table className="min-w-256">
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-16">Logo</TableHead>
                     <TableHead>Organization</TableHead>
                     <TableHead>Owner</TableHead>
+                    <TableHead>Status</TableHead>
                     <TableHead>Slug</TableHead>
                     <TableHead>Created</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
@@ -390,6 +415,35 @@ function OrganizationsPage() {
                           ) : (
                             <Badge variant="outline">Unassigned</Badge>
                           )}
+                        </TableCell>
+                        <TableCell>
+                          <Select
+                            value={organization.status}
+                            disabled={updateStatus.isPending}
+                            onValueChange={(status) =>
+                              updateStatus.mutate({
+                                id: organization.id,
+                                status: status as api.OrganizationStatus,
+                              })
+                            }
+                          >
+                            <SelectTrigger
+                              className="w-32"
+                              aria-label={`Status for ${organization.name}`}
+                            >
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectGroup>
+                                <SelectLabel>Organization status</SelectLabel>
+                                {organizationStatuses.map((status) => (
+                                  <SelectItem key={status} value={status}>
+                                    {capitalize(status)}
+                                  </SelectItem>
+                                ))}
+                              </SelectGroup>
+                            </SelectContent>
+                          </Select>
                         </TableCell>
                         <TableCell className="text-muted-foreground">{organization.slug}</TableCell>
                         <TableCell className="text-muted-foreground">
@@ -673,6 +727,18 @@ function formatDate(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "Unknown";
   return new Intl.DateTimeFormat("en-MY", { dateStyle: "medium" }).format(date);
+}
+
+function capitalize(value: string) {
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+async function load<T>(promise: Promise<api.ApiResponse<T>>): Promise<T> {
+  const response = await promise;
+  if (!response.success || response.data === undefined) {
+    throw new Error(response.message ?? "Unable to complete the request");
+  }
+  return response.data;
 }
 
 function initials(name: string) {

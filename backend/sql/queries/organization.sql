@@ -12,6 +12,13 @@ SELECT o.* FROM "organization" o
 JOIN "member" m ON m.organization_id = o.id
 WHERE m.user_id = $1 ORDER BY o.name;
 
+-- name: ListOrganizationMembershipsByUserID :many
+SELECT o.*, m.role AS membership_role
+FROM "organization" o
+JOIN "member" m ON m.organization_id = o.id
+WHERE m.user_id = $1
+ORDER BY o.name;
+
 -- name: ListOwnedOrganizationsByUserID :many
 SELECT o.* FROM "organization" o
 JOIN "member" m ON m.organization_id = o.id
@@ -44,6 +51,12 @@ INSERT INTO "organization" (id, name, slug, logo, metadata) VALUES ($1, $2, $3, 
 
 -- name: UpdateOrganization :one
 UPDATE "organization" SET name=$2, slug=$3, logo=COALESCE($4, logo), metadata=$5 WHERE id=$1 RETURNING *;
+
+-- name: UpdateOrganizationStatus :one
+UPDATE organization SET status = $2 WHERE id = $1 RETURNING *;
+
+-- name: GetOrganizationStatus :one
+SELECT status FROM organization WHERE id = $1;
 
 -- name: UpdateOrganizationLogo :one
 UPDATE "organization"
