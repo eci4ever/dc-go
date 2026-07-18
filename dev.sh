@@ -20,7 +20,7 @@ while IFS= read -r line || [[ -n "$line" ]]; do
   key="${line%%=*}"
   value="${line#*=}"
   case "$key" in
-    DATABASE_URL | JWT_SECRET | REDIS_PASSWORD | REDIS_URL | S3_ENDPOINT | S3_ACCESS_KEY | S3_SECRET_KEY | S3_BUCKET | S3_REGION | S3_USE_SSL | S3_FORCE_PATH_STYLE | REDISINSIGHT_ENCRYPTION_KEY) export "$key=$value" ;;
+    DATABASE_URL | JWT_SECRET | REDIS_PASSWORD | REDIS_URL | S3_ENDPOINT | S3_ACCESS_KEY | S3_SECRET_KEY | S3_BUCKET | S3_REGION | S3_USE_SSL | S3_FORCE_PATH_STYLE) export "$key=$value" ;;
   esac
 done < .env
 
@@ -31,7 +31,6 @@ done < .env
 : "${S3_ACCESS_KEY:?S3_ACCESS_KEY must be set in .env}"
 : "${S3_SECRET_KEY:?S3_SECRET_KEY must be set in .env}"
 : "${S3_ENDPOINT:?S3_ENDPOINT must be set in .env}"
-: "${REDISINSIGHT_ENCRYPTION_KEY:?REDISINSIGHT_ENCRYPTION_KEY must be set in .env}"
 
 # The Compose app reaches PostgreSQL as `db`; host-run Air reaches the same
 # published database through localhost.
@@ -65,8 +64,8 @@ trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
-echo "Starting PostgreSQL, Redis, SeaweedFS, and Redis Insight..."
-docker compose --profile devtools up -d --wait db redis seaweedfs redisinsight
+echo "Starting PostgreSQL, Redis, and SeaweedFS..."
+docker compose up -d --wait db redis seaweedfs
 
 echo "Starting Fiber API on http://localhost:3000..."
 (cd backend && exec air) &

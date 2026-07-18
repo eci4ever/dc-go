@@ -114,7 +114,6 @@ S3_BUCKET=dc-go
 S3_REGION=us-east-1
 S3_USE_SSL=false
 S3_FORCE_PATH_STYLE=true
-REDISINSIGHT_ENCRYPTION_KEY=ReplaceThisWithA32CharacterEncryptionKey!123
 ```
 
 `JWT_SECRET` must be at least 32 characters and contain at least three of these character classes: uppercase letters, lowercase letters, digits, and symbols.
@@ -133,7 +132,6 @@ REDISINSIGHT_ENCRYPTION_KEY=ReplaceThisWithA32CharacterEncryptionKey!123
 | `S3_BUCKET` | `dc-go` | Default object-storage bucket |
 | `S3_REGION` | `us-east-1` | S3 signing region |
 | `S3_FORCE_PATH_STYLE` | `true` | Required for the local SeaweedFS endpoint |
-| `REDISINSIGHT_ENCRYPTION_KEY` | Required | Encrypts Redis Insight connection data at rest |
 
 The `.env` file is ignored by Git. Do not commit real secrets.
 
@@ -155,7 +153,7 @@ Make sure Docker is running, then start the complete development environment:
 
 The script:
 
-1. Starts PostgreSQL, Redis, SeaweedFS, and Redis Insight and waits for them to become healthy.
+1. Starts PostgreSQL, Redis, and SeaweedFS and waits for them to become healthy.
 2. Runs the Fiber API through Air with hot reload.
 3. Runs the Vite development server.
 4. Stops Air and Vite together when either exits or you press `Ctrl+C`.
@@ -169,7 +167,6 @@ Development services are available at:
 | Health check | http://localhost:3000/api/v1/health |
 | PostgreSQL | `localhost:5432` |
 | Redis | `localhost:6379` |
-| Redis Insight | http://localhost:5540 |
 | SeaweedFS S3 API | http://localhost:8333 |
 | SeaweedFS Filer UI | http://localhost:8888 |
 | SeaweedFS Master UI | http://localhost:9333 |
@@ -178,12 +175,10 @@ Development services are available at:
 Vite proxies `/api` requests to the backend. Infrastructure containers remain running after `dev.sh` exits; stop them when needed with:
 
 ```bash
-docker compose --profile devtools stop db redis seaweedfs redisinsight
+docker compose stop db redis seaweedfs
 ```
 
-Redis Insight registers `DC-GO Redis` automatically using `REDIS_PASSWORD`; complete its first-run terms screen if prompted.
-
-Redis Insight is in the `devtools` Compose profile and binds only to `127.0.0.1`, so starting the production `app` service does not expose or start it. Redis Insight state is stored in `redisinsightdata`, Redis data in `redisdata`, and SeaweedFS data in `seaweeddata`. SeaweedFS runs in single-node `weed mini` mode and creates the configured bucket automatically. Generic `S3_*` variables keep the application portable across S3-compatible providers.
+Redis data is stored in `redisdata`, and SeaweedFS data is stored in `seaweeddata`. SeaweedFS runs in single-node `weed mini` mode and creates the configured bucket automatically. Generic `S3_*` variables keep the application portable across S3-compatible providers.
 
 ## Authentication model
 
