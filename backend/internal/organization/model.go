@@ -3,14 +3,22 @@ package organization
 import "time"
 
 type Organization struct {
-	ID              string     `json:"id"`
-	Name            string     `json:"name"`
-	Slug            string     `json:"slug"`
-	Logo            *string    `json:"logo,omitempty"`
-	CreatedAt       string     `json:"created_at"`
-	LogoKey         *string    `json:"-"`
-	LogoContentType *string    `json:"-"`
-	LogoUpdatedAt   *time.Time `json:"-"`
+	ID              string             `json:"id"`
+	Name            string             `json:"name"`
+	Slug            string             `json:"slug"`
+	Logo            *string            `json:"logo,omitempty"`
+	CreatedAt       string             `json:"created_at"`
+	LogoKey         *string            `json:"-"`
+	LogoContentType *string            `json:"-"`
+	LogoUpdatedAt   *time.Time         `json:"-"`
+	Owner           *OrganizationOwner `json:"owner,omitempty"`
+}
+
+type OrganizationOwner struct {
+	ID    string  `json:"id"`
+	Name  string  `json:"name"`
+	Email string  `json:"email"`
+	Image *string `json:"image,omitempty"`
 }
 
 type Member struct {

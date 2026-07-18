@@ -34,6 +34,7 @@ type Querier interface {
 	DeleteTeamMember(ctx context.Context, arg DeleteTeamMemberParams) error
 	DeleteUser(ctx context.Context, id string) error
 	DeleteVerification(ctx context.Context, id string) error
+	DemoteOrganizationOwners(ctx context.Context, arg DemoteOrganizationOwnersParams) error
 	FindAcademicGrade(ctx context.Context, arg FindAcademicGradeParams) (AcademicGradeScale, error)
 	GetAcademicCourse(ctx context.Context, arg GetAcademicCourseParams) (AcademicCourse, error)
 	GetAcademicMember(ctx context.Context, arg GetAcademicMemberParams) (Member, error)
@@ -48,6 +49,7 @@ type Querier interface {
 	GetMember(ctx context.Context, arg GetMemberParams) (Member, error)
 	GetOrganization(ctx context.Context, id string) (Organization, error)
 	GetOrganizationBySlug(ctx context.Context, slug string) (Organization, error)
+	GetOrganizationOwner(ctx context.Context, organizationID string) (GetOrganizationOwnerRow, error)
 	GetSessionByToken(ctx context.Context, token string) (Session, error)
 	GetSessionContextByToken(ctx context.Context, token string) (GetSessionContextByTokenRow, error)
 	GetTeam(ctx context.Context, id string) (Team, error)
@@ -65,10 +67,13 @@ type Querier interface {
 	ListMembersByOrganizationID(ctx context.Context, organizationID string) ([]ListMembersByOrganizationIDRow, error)
 	ListOrganizations(ctx context.Context) ([]Organization, error)
 	ListOrganizationsByUserID(ctx context.Context, userID string) ([]Organization, error)
+	ListOrganizationsWithOwner(ctx context.Context) ([]ListOrganizationsWithOwnerRow, error)
+	ListOwnedOrganizationsByUserID(ctx context.Context, userID string) ([]Organization, error)
 	ListSessionsByUserID(ctx context.Context, userID string) ([]Session, error)
 	ListTeamMembers(ctx context.Context, teamID string) ([]ListTeamMembersRow, error)
 	ListTeamsByOrganizationID(ctx context.Context, organizationID string) ([]Team, error)
 	ListUsers(ctx context.Context) ([]User, error)
+	LockOrganization(ctx context.Context, id string) (string, error)
 	UpdateAccountPassword(ctx context.Context, arg UpdateAccountPasswordParams) (Account, error)
 	UpdateInvitationStatus(ctx context.Context, arg UpdateInvitationStatusParams) (Invitation, error)
 	UpdateMemberRole(ctx context.Context, arg UpdateMemberRoleParams) (Member, error)
@@ -80,6 +85,7 @@ type Querier interface {
 	UpdateUserAvatar(ctx context.Context, arg UpdateUserAvatarParams) (User, error)
 	UpdateUserRole(ctx context.Context, arg UpdateUserRoleParams) (User, error)
 	UpsertAcademicResult(ctx context.Context, arg UpsertAcademicResultParams) (AcademicResult, error)
+	UpsertOrganizationOwner(ctx context.Context, arg UpsertOrganizationOwnerParams) (Member, error)
 }
 
 var _ Querier = (*Queries)(nil)

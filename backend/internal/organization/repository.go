@@ -89,16 +89,89 @@ func (r *Repository) ListByUserID(ctx context.Context, userID string) ([]Organiz
 	return orgs, nil
 }
 
+func (r *Repository) ListOwnedByUserID(ctx context.Context, userID string) ([]Organization, error) {
+	rows, err := r.q.ListOwnedOrganizationsByUserID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	organizations := make([]Organization, len(rows))
+	for i, org := range rows {
+		organizations[i] = mapOrg(org)
+	}
+	return organizations, nil
+}
+
 func (r *Repository) ListAll(ctx context.Context) ([]Organization, error) {
-	rows, err := r.q.ListOrganizations(ctx)
+	rows, err := r.q.ListOrganizationsWithOwner(ctx)
 	if err != nil {
 		return nil, err
 	}
 	orgs := make([]Organization, len(rows))
 	for i, org := range rows {
-		orgs[i] = mapOrg(org)
+		orgs[i] = Organization{
+			ID:              org.ID,
+			Name:            org.Name,
+			Slug:            org.Slug,
+			Logo:            pgtextPtr(&org.Logo),
+			CreatedAt:       org.CreatedAt.Time.Format(time3339),
+			LogoKey:         pgtextPtr(&org.LogoKey),
+			LogoContentType: pgtextPtr(&org.LogoContentType),
+			LogoUpdatedAt:   pgtimestamptzPtr(&org.LogoUpdatedAt),
+		}
+		if org.OwnerID.Valid {
+			orgs[i].Owner = &OrganizationOwner{
+				ID:    org.OwnerID.String,
+				Name:  org.OwnerName.String,
+				Email: org.OwnerEmail.String,
+				Image: pgtextPtr(&org.OwnerImage),
+			}
+		}
 	}
 	return orgs, nil
+}
+
+func (r *Repository) SetOwner(ctx context.Context, orgID, userID string) (OrganizationOwner, error) {
+	if _, err := r.q.GetUser(ctx, userID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return OrganizationOwner{}, ErrNotFound
+		}
+		return OrganizationOwner{}, err
+	}
+
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return OrganizationOwner{}, err
+	}
+	defer tx.Rollback(ctx)
+	q := db.New(tx)
+
+	if _, err := q.LockOrganization(ctx, orgID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return OrganizationOwner{}, ErrNotFound
+		}
+		return OrganizationOwner{}, err
+	}
+	if err := q.DemoteOrganizationOwners(ctx, db.DemoteOrganizationOwnersParams{
+		OrganizationID: orgID,
+		UserID:         userID,
+	}); err != nil {
+		return OrganizationOwner{}, err
+	}
+	if _, err := q.UpsertOrganizationOwner(ctx, db.UpsertOrganizationOwnerParams{
+		ID:             uuid.NewString(),
+		OrganizationID: orgID,
+		UserID:         userID,
+	}); err != nil {
+		return OrganizationOwner{}, err
+	}
+	owner, err := q.GetOrganizationOwner(ctx, orgID)
+	if err != nil {
+		return OrganizationOwner{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return OrganizationOwner{}, err
+	}
+	return mapOrganizationOwner(owner), nil
 }
 
 func (r *Repository) UserRole(ctx context.Context, userID string) (string, error) {
@@ -408,6 +481,15 @@ func pgtimestamptzPtr(t *pgtype.Timestamptz) *time.Time {
 		return nil
 	}
 	return &t.Time
+}
+
+func mapOrganizationOwner(owner db.GetOrganizationOwnerRow) OrganizationOwner {
+	return OrganizationOwner{
+		ID:    owner.ID,
+		Name:  owner.Name,
+		Email: owner.Email,
+		Image: pgtextPtr(&owner.Image),
+	}
 }
 
 func textPtr(s string) pgtype.Text {

@@ -26,17 +26,20 @@ function ProtectedLayout() {
 
   const isUserManagement = pathname.startsWith("/admin/users");
   const isOrganizationManagement = pathname.startsWith("/admin/organizations");
+  const isOwnedOrganizationManagement = pathname.startsWith("/organization");
   const isAccount = pathname.startsWith("/account");
   const isAcademic = pathname.startsWith("/academic");
   const pageName = isOrganizationManagement
     ? "Organizations"
-    : isUserManagement
-      ? "Users"
-      : isAccount
-        ? "Account"
-        : isAcademic
-          ? "Academic"
-          : "Dashboard";
+    : isOwnedOrganizationManagement
+      ? "Organization Management"
+      : isUserManagement
+        ? "Users"
+        : isAccount
+          ? "Account"
+          : isAcademic
+            ? "Academic"
+            : "Dashboard";
 
   return (
     <SidebarProvider className="h-svh min-h-0 overflow-hidden">

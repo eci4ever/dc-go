@@ -44,7 +44,37 @@ interface Organization {
   name: string;
   slug: string;
   logo?: string | null;
+  owner?: OrganizationOwner | null;
   created_at: string;
+}
+interface OrganizationOwner {
+  id: string;
+  name: string;
+  email: string;
+  image?: string | null;
+}
+interface OrganizationMember {
+  id: string;
+  org_id: string;
+  user_id: string;
+  role: OrganizationRole;
+  created_at: string;
+  user: {
+    name: string;
+    email: string;
+    image?: string | null;
+  };
+}
+interface OrganizationInvitation {
+  id: string;
+  org_id: string;
+  email: string;
+  role: Exclude<OrganizationRole, "owner">;
+  status: "pending" | "accepted" | "declined" | "expired";
+  inviter_id: string;
+  expires_at: string;
+  created_at: string;
+  team_id?: string | null;
 }
 interface ManagedSession {
   id: string;
@@ -208,6 +238,44 @@ export const listSessions = () => request<ManagedSession[]>("/auth/sessions");
 export const revokeSession = (id: string) =>
   request<void>(`/auth/sessions/${id}`, { method: "DELETE" });
 export const listOrganizations = () => request<Organization[]>("/organizations");
+export const listOwnedOrganizations = () => request<Organization[]>("/organizations/owned");
+export const getOrganization = (id: string) => request<Organization>(`/organizations/${id}`);
+export const updateOrganization = (id: string, name: string, slug: string) =>
+  request<Organization>(`/organizations/${id}`, {
+    method: "PUT",
+    body: JSON.stringify({ name, slug }),
+  });
+export const uploadOrganizationLogo = (id: string, file: File) => {
+  const body = new FormData();
+  body.append("logo", file);
+  return request<Organization>(`/organizations/${id}/logo`, { method: "PUT", body });
+};
+export const listOrganizationMembers = (id: string) =>
+  request<OrganizationMember[]>(`/organizations/${id}/members`);
+export const updateOrganizationMemberRole = (
+  id: string,
+  userId: string,
+  role: Exclude<OrganizationRole, "owner">,
+) =>
+  request<void>(`/organizations/${id}/members/${userId}/role`, {
+    method: "PUT",
+    body: JSON.stringify({ role }),
+  });
+export const removeOrganizationMember = (id: string, userId: string) =>
+  request<void>(`/organizations/${id}/members/${userId}`, { method: "DELETE" });
+export const listOrganizationInvitations = (id: string) =>
+  request<OrganizationInvitation[]>(`/organizations/${id}/invitations`);
+export const inviteOrganizationMember = (
+  id: string,
+  email: string,
+  role: Exclude<OrganizationRole, "owner">,
+) =>
+  request<OrganizationInvitation>(`/organizations/${id}/invitations`, {
+    method: "POST",
+    body: JSON.stringify({ email, role }),
+  });
+export const cancelOrganizationInvitation = (id: string) =>
+  request<void>(`/invitations/${id}`, { method: "DELETE" });
 export const listAdminOrganizations = () => request<Organization[]>("/admin/organizations");
 export const createAdminOrganization = (name: string, slug: string) =>
   request<Organization>("/admin/organizations", {
@@ -224,6 +292,11 @@ export const uploadAdminOrganizationLogo = (id: string, file: File) => {
   body.append("logo", file);
   return request<Organization>(`/admin/organizations/${id}/logo`, { method: "PUT", body });
 };
+export const setAdminOrganizationOwner = (id: string, userId: string) =>
+  request<OrganizationOwner>(`/admin/organizations/${id}/owner`, {
+    method: "PUT",
+    body: JSON.stringify({ user_id: userId }),
+  });
 export const deleteAdminOrganization = (id: string) =>
   request<void>(`/admin/organizations/${id}`, { method: "DELETE" });
 export const setActiveOrganization = (organizationId: string) =>
@@ -287,6 +360,9 @@ export type {
   SessionData,
   ManagedSession,
   Organization,
+  OrganizationOwner,
+  OrganizationMember,
+  OrganizationInvitation,
   ApiResponse,
   AcademicStudent,
   AcademicSemester,
