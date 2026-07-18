@@ -55,6 +55,22 @@ func (q *Queries) DeleteOrganization(ctx context.Context, id string) error {
 	return err
 }
 
+const demoteOrganizationOwners = `-- name: DemoteOrganizationOwners :exec
+UPDATE member
+SET role = 'admin'
+WHERE organization_id = $1 AND role = 'owner' AND user_id <> $2
+`
+
+type DemoteOrganizationOwnersParams struct {
+	OrganizationID string `json:"organization_id"`
+	UserID         string `json:"user_id"`
+}
+
+func (q *Queries) DemoteOrganizationOwners(ctx context.Context, arg DemoteOrganizationOwnersParams) error {
+	_, err := q.db.Exec(ctx, demoteOrganizationOwners, arg.OrganizationID, arg.UserID)
+	return err
+}
+
 const getOrganization = `-- name: GetOrganization :one
 SELECT id, name, slug, logo, created_at, metadata, logo_key, logo_content_type, logo_updated_at FROM "organization" WHERE id = $1
 `
@@ -93,6 +109,34 @@ func (q *Queries) GetOrganizationBySlug(ctx context.Context, slug string) (Organ
 		&i.LogoKey,
 		&i.LogoContentType,
 		&i.LogoUpdatedAt,
+	)
+	return i, err
+}
+
+const getOrganizationOwner = `-- name: GetOrganizationOwner :one
+SELECT u.id, u.name, u.email, u.image
+FROM member m
+JOIN "user" u ON u.id = m.user_id
+WHERE m.organization_id = $1 AND m.role = 'owner'
+ORDER BY m.created_at, m.id
+LIMIT 1
+`
+
+type GetOrganizationOwnerRow struct {
+	ID    string      `json:"id"`
+	Name  string      `json:"name"`
+	Email string      `json:"email"`
+	Image pgtype.Text `json:"image"`
+}
+
+func (q *Queries) GetOrganizationOwner(ctx context.Context, organizationID string) (GetOrganizationOwnerRow, error) {
+	row := q.db.QueryRow(ctx, getOrganizationOwner, organizationID)
+	var i GetOrganizationOwnerRow
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Email,
+		&i.Image,
 	)
 	return i, err
 }
@@ -167,6 +211,123 @@ func (q *Queries) ListOrganizationsByUserID(ctx context.Context, userID string) 
 	return items, nil
 }
 
+const listOrganizationsWithOwner = `-- name: ListOrganizationsWithOwner :many
+SELECT
+    o.id, o.name, o.slug, o.logo, o.created_at, o.metadata, o.logo_key, o.logo_content_type, o.logo_updated_at,
+    owner_user.id AS owner_id,
+    owner_user.name AS owner_name,
+    owner_user.email AS owner_email,
+    owner_user.image AS owner_image
+FROM organization o
+LEFT JOIN member owner_member ON owner_member.id = (
+    SELECT m.id
+    FROM member m
+    WHERE m.organization_id = o.id AND m.role = 'owner'
+    ORDER BY m.created_at, m.id
+    LIMIT 1
+)
+LEFT JOIN "user" owner_user ON owner_user.id = owner_member.user_id
+ORDER BY o.name
+`
+
+type ListOrganizationsWithOwnerRow struct {
+	ID              string             `json:"id"`
+	Name            string             `json:"name"`
+	Slug            string             `json:"slug"`
+	Logo            pgtype.Text        `json:"logo"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	Metadata        pgtype.Text        `json:"metadata"`
+	LogoKey         pgtype.Text        `json:"logo_key"`
+	LogoContentType pgtype.Text        `json:"logo_content_type"`
+	LogoUpdatedAt   pgtype.Timestamptz `json:"logo_updated_at"`
+	OwnerID         pgtype.Text        `json:"owner_id"`
+	OwnerName       pgtype.Text        `json:"owner_name"`
+	OwnerEmail      pgtype.Text        `json:"owner_email"`
+	OwnerImage      pgtype.Text        `json:"owner_image"`
+}
+
+func (q *Queries) ListOrganizationsWithOwner(ctx context.Context) ([]ListOrganizationsWithOwnerRow, error) {
+	rows, err := q.db.Query(ctx, listOrganizationsWithOwner)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListOrganizationsWithOwnerRow{}
+	for rows.Next() {
+		var i ListOrganizationsWithOwnerRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Slug,
+			&i.Logo,
+			&i.CreatedAt,
+			&i.Metadata,
+			&i.LogoKey,
+			&i.LogoContentType,
+			&i.LogoUpdatedAt,
+			&i.OwnerID,
+			&i.OwnerName,
+			&i.OwnerEmail,
+			&i.OwnerImage,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listOwnedOrganizationsByUserID = `-- name: ListOwnedOrganizationsByUserID :many
+SELECT o.id, o.name, o.slug, o.logo, o.created_at, o.metadata, o.logo_key, o.logo_content_type, o.logo_updated_at FROM "organization" o
+JOIN "member" m ON m.organization_id = o.id
+WHERE m.user_id = $1 AND m.role = 'owner'
+ORDER BY o.name
+`
+
+func (q *Queries) ListOwnedOrganizationsByUserID(ctx context.Context, userID string) ([]Organization, error) {
+	rows, err := q.db.Query(ctx, listOwnedOrganizationsByUserID, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Organization{}
+	for rows.Next() {
+		var i Organization
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Slug,
+			&i.Logo,
+			&i.CreatedAt,
+			&i.Metadata,
+			&i.LogoKey,
+			&i.LogoContentType,
+			&i.LogoUpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const lockOrganization = `-- name: LockOrganization :one
+SELECT id FROM organization WHERE id = $1 FOR UPDATE
+`
+
+func (q *Queries) LockOrganization(ctx context.Context, id string) (string, error) {
+	row := q.db.QueryRow(ctx, lockOrganization, id)
+	var id_2 string
+	err := row.Scan(&id_2)
+	return id_2, err
+}
+
 const updateOrganization = `-- name: UpdateOrganization :one
 UPDATE "organization" SET name=$2, slug=$3, logo=COALESCE($4, logo), metadata=$5 WHERE id=$1 RETURNING id, name, slug, logo, created_at, metadata, logo_key, logo_content_type, logo_updated_at
 `
@@ -236,6 +397,33 @@ func (q *Queries) UpdateOrganizationLogo(ctx context.Context, arg UpdateOrganiza
 		&i.LogoKey,
 		&i.LogoContentType,
 		&i.LogoUpdatedAt,
+	)
+	return i, err
+}
+
+const upsertOrganizationOwner = `-- name: UpsertOrganizationOwner :one
+INSERT INTO member (id, organization_id, user_id, role)
+VALUES ($1, $2, $3, 'owner')
+ON CONFLICT (organization_id, user_id)
+DO UPDATE SET role = 'owner'
+RETURNING id, organization_id, user_id, role, created_at
+`
+
+type UpsertOrganizationOwnerParams struct {
+	ID             string `json:"id"`
+	OrganizationID string `json:"organization_id"`
+	UserID         string `json:"user_id"`
+}
+
+func (q *Queries) UpsertOrganizationOwner(ctx context.Context, arg UpsertOrganizationOwnerParams) (Member, error) {
+	row := q.db.QueryRow(ctx, upsertOrganizationOwner, arg.ID, arg.OrganizationID, arg.UserID)
+	var i Member
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.UserID,
+		&i.Role,
+		&i.CreatedAt,
 	)
 	return i, err
 }

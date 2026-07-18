@@ -1,11 +1,4 @@
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ChangeEvent,
-  type FormEvent,
-} from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import {
@@ -16,6 +9,7 @@ import {
   SearchIcon,
   Trash2Icon,
   UploadIcon,
+  UserRoundCogIcon,
 } from "lucide-react";
 
 import {
@@ -55,14 +49,17 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import {
-  Field,
-  FieldDescription,
-  FieldError,
-  FieldGroup,
-  FieldLabel,
-} from "@/components/ui/field";
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import {
@@ -79,10 +76,17 @@ import type { Organization } from "@/lib/api";
 import { sessionQueryOptions } from "@/lib/session";
 
 const organizationsQueryKey = ["admin", "organizations"] as const;
+const usersQueryKey = ["admin", "users"] as const;
 const pageSize = 10;
 const maxLogoBytes = 2 * 1024 * 1024;
 
-const emptyForm = { id: "", name: "", slug: "", logo: null as string | null };
+const emptyForm = {
+  id: "",
+  name: "",
+  slug: "",
+  logo: null as string | null,
+  ownerId: "",
+};
 
 export const Route = createFileRoute("/_protected/admin/organizations")({
   beforeLoad: async ({ context }) => {
@@ -93,7 +97,7 @@ export const Route = createFileRoute("/_protected/admin/organizations")({
 });
 
 function OrganizationsPage() {
-  const { session } = useAuth();
+  const { session, user: currentUser } = useAuth();
   const queryClient = useQueryClient();
   const [form, setForm] = useState(emptyForm);
   const logoInputRef = useRef<HTMLInputElement>(null);
@@ -114,6 +118,16 @@ function OrganizationsPage() {
       return response.data;
     },
   });
+  const users = useQuery({
+    queryKey: usersQueryKey,
+    queryFn: async () => {
+      const response = await api.listUsers();
+      if (!response.success || !response.data) {
+        throw new Error(response.message ?? "Unable to load users");
+      }
+      return response.data;
+    },
+  });
 
   useEffect(
     () => () => {
@@ -130,15 +144,28 @@ function OrganizationsPage() {
       if (!response.success || !response.data) {
         throw new Error(response.message ?? "Unable to save organization");
       }
-      if (!logoFile) return response.data;
+      let saved = response.data;
 
-      const logoResponse = await api.uploadAdminOrganizationLogo(response.data.id, logoFile);
-      if (!logoResponse.success || !logoResponse.data) {
-        throw new Error(
-          logoResponse.message ?? "Organization was saved, but its logo could not be uploaded",
-        );
+      if (logoFile) {
+        const logoResponse = await api.uploadAdminOrganizationLogo(saved.id, logoFile);
+        if (!logoResponse.success || !logoResponse.data) {
+          throw new Error(
+            logoResponse.message ?? "Organization was saved, but its logo could not be uploaded",
+          );
+        }
+        saved = logoResponse.data;
       }
-      return logoResponse.data;
+
+      if (form.ownerId) {
+        const ownerResponse = await api.setAdminOrganizationOwner(saved.id, form.ownerId);
+        if (!ownerResponse.success || !ownerResponse.data) {
+          throw new Error(
+            ownerResponse.message ?? "Organization was saved, but its owner could not be assigned",
+          );
+        }
+        saved = { ...saved, owner: ownerResponse.data };
+      }
+      return saved;
     },
     onSuccess: (saved) => {
       queryClient.setQueryData<Organization[]>(organizationsQueryKey, (current = []) => {
@@ -177,7 +204,9 @@ function OrganizationsPage() {
     return (organizations.data ?? []).filter(
       (organization) =>
         organization.name.toLowerCase().includes(term) ||
-        organization.slug.toLowerCase().includes(term),
+        organization.slug.toLowerCase().includes(term) ||
+        organization.owner?.name.toLowerCase().includes(term) ||
+        organization.owner?.email.toLowerCase().includes(term),
     );
   }, [organizations.data, search]);
   const pageCount = Math.max(1, Math.ceil(filteredOrganizations.length / pageSize));
@@ -195,6 +224,7 @@ function OrganizationsPage() {
   const openCreateDialog = () => {
     saveOrganization.reset();
     resetForm();
+    setForm((current) => ({ ...current, ownerId: currentUser?.id ?? "" }));
     setDialogOpen(true);
   };
 
@@ -206,6 +236,7 @@ function OrganizationsPage() {
       name: organization.name,
       slug: organization.slug,
       logo: organization.logo ?? null,
+      ownerId: organization.owner?.id ?? "",
     });
     setDialogOpen(true);
   };
@@ -259,12 +290,12 @@ function OrganizationsPage() {
         </Button>
       </div>
 
-      {(organizations.error || deleteOrganization.error) && (
+      {(organizations.error || users.error || deleteOrganization.error) && (
         <Alert variant="destructive">
           <AlertCircleIcon />
           <AlertTitle>Organization operation failed</AlertTitle>
           <AlertDescription>
-            {(organizations.error ?? deleteOrganization.error)?.message}
+            {(organizations.error ?? users.error ?? deleteOrganization.error)?.message}
           </AlertDescription>
         </Alert>
       )}
@@ -302,11 +333,12 @@ function OrganizationsPage() {
             </div>
           ) : pageOrganizations.length ? (
             <div className="min-w-0 overflow-hidden rounded-md border">
-              <Table className="min-w-176">
+              <Table className="min-w-224">
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-16">Logo</TableHead>
                     <TableHead>Organization</TableHead>
+                    <TableHead>Owner</TableHead>
                     <TableHead>Slug</TableHead>
                     <TableHead>Created</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
@@ -320,7 +352,10 @@ function OrganizationsPage() {
                         <TableCell>
                           <Avatar size="lg">
                             {organization.logo && (
-                              <AvatarImage src={organization.logo} alt={`${organization.name} logo`} />
+                              <AvatarImage
+                                src={organization.logo}
+                                alt={`${organization.name} logo`}
+                              />
                             )}
                             <AvatarFallback>
                               <Building2Icon className="size-4" aria-hidden="true" />
@@ -332,6 +367,29 @@ function OrganizationsPage() {
                             <p className="truncate font-medium">{organization.name}</p>
                             {isActive && <Badge variant="secondary">Active</Badge>}
                           </div>
+                        </TableCell>
+                        <TableCell>
+                          {organization.owner ? (
+                            <div className="flex min-w-52 items-center gap-3">
+                              <Avatar size="sm">
+                                <AvatarImage
+                                  src={organization.owner.image ?? undefined}
+                                  alt={organization.owner.name}
+                                />
+                                <AvatarFallback>{initials(organization.owner.name)}</AvatarFallback>
+                              </Avatar>
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-medium">
+                                  {organization.owner.name}
+                                </p>
+                                <p className="truncate text-xs text-muted-foreground">
+                                  {organization.owner.email}
+                                </p>
+                              </div>
+                            </div>
+                          ) : (
+                            <Badge variant="outline">Unassigned</Badge>
+                          )}
                         </TableCell>
                         <TableCell className="text-muted-foreground">{organization.slug}</TableCell>
                         <TableCell className="text-muted-foreground">
@@ -505,6 +563,37 @@ function OrganizationsPage() {
                   }
                 />
               </Field>
+              <Field>
+                <FieldLabel htmlFor="organization-owner">Organization owner</FieldLabel>
+                <Select
+                  value={form.ownerId || undefined}
+                  disabled={users.isPending || saveOrganization.isPending}
+                  onValueChange={(ownerId) => setForm((current) => ({ ...current, ownerId }))}
+                >
+                  <SelectTrigger id="organization-owner" className="w-full">
+                    <SelectValue
+                      placeholder={users.isPending ? "Loading users..." : "Select an owner"}
+                    />
+                  </SelectTrigger>
+                  <SelectContent position="popper" className="max-h-72">
+                    <SelectGroup>
+                      <SelectLabel>Platform users</SelectLabel>
+                      {users.data?.map((user) => (
+                        <SelectItem key={user.id} value={user.id} disabled={user.banned}>
+                          <UserRoundCogIcon />
+                          <span className="truncate">{user.name}</span>
+                          <span className="truncate text-xs text-muted-foreground">
+                            {user.email}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+                <FieldDescription>
+                  Assigning a new owner keeps the previous owner as an organization admin.
+                </FieldDescription>
+              </Field>
             </FieldGroup>
             {saveOrganization.error && (
               <Alert variant="destructive">
@@ -584,4 +673,15 @@ function formatDate(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "Unknown";
   return new Intl.DateTimeFormat("en-MY", { dateStyle: "medium" }).format(date);
+}
+
+function initials(name: string) {
+  return (
+    name
+      .trim()
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase())
+      .join("") || "?"
+  );
 }

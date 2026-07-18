@@ -11,6 +11,7 @@ import { Route as SignupRouteImport } from './routes/signup'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ProtectedRouteImport } from './routes/_protected'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ProtectedOrganizationRouteImport } from './routes/_protected/organization'
 import { Route as ProtectedDashboardRouteImport } from './routes/_protected/dashboard'
 import { Route as ProtectedAccountRouteImport } from './routes/_protected/account'
 import { Route as ProtectedAcademicRouteImport } from './routes/_protected/academic'
@@ -35,6 +36,11 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const ProtectedOrganizationRoute = ProtectedOrganizationRouteImport.update({
+  id: '/organization',
+  path: '/organization',
+  getParentRoute: () => ProtectedRoute,
 } as any)
 const ProtectedDashboardRoute = ProtectedDashboardRouteImport.update({
   id: '/dashboard',
@@ -70,6 +76,7 @@ export interface FileRoutesByFullPath {
   '/academic': typeof ProtectedAcademicRoute
   '/account': typeof ProtectedAccountRoute
   '/dashboard': typeof ProtectedDashboardRoute
+  '/organization': typeof ProtectedOrganizationRoute
   '/admin/organizations': typeof ProtectedAdminOrganizationsRoute
   '/admin/users': typeof ProtectedAdminUsersRoute
 }
@@ -80,6 +87,7 @@ export interface FileRoutesByTo {
   '/academic': typeof ProtectedAcademicRoute
   '/account': typeof ProtectedAccountRoute
   '/dashboard': typeof ProtectedDashboardRoute
+  '/organization': typeof ProtectedOrganizationRoute
   '/admin/organizations': typeof ProtectedAdminOrganizationsRoute
   '/admin/users': typeof ProtectedAdminUsersRoute
 }
@@ -92,6 +100,7 @@ export interface FileRoutesById {
   '/_protected/academic': typeof ProtectedAcademicRoute
   '/_protected/account': typeof ProtectedAccountRoute
   '/_protected/dashboard': typeof ProtectedDashboardRoute
+  '/_protected/organization': typeof ProtectedOrganizationRoute
   '/_protected/admin/organizations': typeof ProtectedAdminOrganizationsRoute
   '/_protected/admin/users': typeof ProtectedAdminUsersRoute
 }
@@ -104,6 +113,7 @@ export interface FileRouteTypes {
     | '/academic'
     | '/account'
     | '/dashboard'
+    | '/organization'
     | '/admin/organizations'
     | '/admin/users'
   fileRoutesByTo: FileRoutesByTo
@@ -114,6 +124,7 @@ export interface FileRouteTypes {
     | '/academic'
     | '/account'
     | '/dashboard'
+    | '/organization'
     | '/admin/organizations'
     | '/admin/users'
   id:
@@ -125,6 +136,7 @@ export interface FileRouteTypes {
     | '/_protected/academic'
     | '/_protected/account'
     | '/_protected/dashboard'
+    | '/_protected/organization'
     | '/_protected/admin/organizations'
     | '/_protected/admin/users'
   fileRoutesById: FileRoutesById
@@ -165,6 +177,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_protected/organization': {
+      id: '/_protected/organization'
+      path: '/organization'
+      fullPath: '/organization'
+      preLoaderRoute: typeof ProtectedOrganizationRouteImport
+      parentRoute: typeof ProtectedRoute
     }
     '/_protected/dashboard': {
       id: '/_protected/dashboard'
@@ -208,6 +227,7 @@ interface ProtectedRouteChildren {
   ProtectedAcademicRoute: typeof ProtectedAcademicRoute
   ProtectedAccountRoute: typeof ProtectedAccountRoute
   ProtectedDashboardRoute: typeof ProtectedDashboardRoute
+  ProtectedOrganizationRoute: typeof ProtectedOrganizationRoute
   ProtectedAdminOrganizationsRoute: typeof ProtectedAdminOrganizationsRoute
   ProtectedAdminUsersRoute: typeof ProtectedAdminUsersRoute
 }
@@ -216,6 +236,7 @@ const ProtectedRouteChildren: ProtectedRouteChildren = {
   ProtectedAcademicRoute: ProtectedAcademicRoute,
   ProtectedAccountRoute: ProtectedAccountRoute,
   ProtectedDashboardRoute: ProtectedDashboardRoute,
+  ProtectedOrganizationRoute: ProtectedOrganizationRoute,
   ProtectedAdminOrganizationsRoute: ProtectedAdminOrganizationsRoute,
   ProtectedAdminUsersRoute: ProtectedAdminUsersRoute,
 }

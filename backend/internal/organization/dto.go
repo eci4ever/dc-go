@@ -14,13 +14,17 @@ type UpdateOrgRequest struct {
 	Logo *string `json:"logo,omitempty"`
 }
 
+type SetOwnerRequest struct {
+	UserID string `json:"user_id" validate:"required,uuid"`
+}
+
 type InviteRequest struct {
 	Email string `json:"email" validate:"required,email"`
-	Role  string `json:"role" validate:"required,oneof=owner admin member"`
+	Role  string `json:"role" validate:"required,oneof=admin member"`
 }
 
 type UpdateMemberRoleRequest struct {
-	Role string `json:"role" validate:"required,oneof=owner admin member"`
+	Role string `json:"role" validate:"required,oneof=admin member"`
 }
 
 const time3339 = "2006-01-02T15:04:05Z07:00"

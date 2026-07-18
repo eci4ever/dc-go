@@ -1,4 +1,5 @@
 import type { ComponentProps } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { Building2Icon, GraduationCapIcon, LayoutDashboardIcon, UsersIcon } from "lucide-react";
 
@@ -15,6 +16,7 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar";
 import type { SessionData, User } from "@/lib/api";
+import * as api from "@/lib/api";
 
 interface AppSidebarProps extends ComponentProps<typeof Sidebar> {
   user: User;
@@ -43,15 +45,38 @@ const adminItems = [
   },
 ];
 
-const academicItems = [
-  {
-    title: "Academic",
-    url: "/academic" as const,
-    icon: GraduationCapIcon,
-  },
-];
+const organizationItem = {
+  title: "Organization",
+  url: "/organization" as const,
+  icon: Building2Icon,
+};
+
+const academicItem = {
+  title: "Academic",
+  url: "/academic" as const,
+  icon: GraduationCapIcon,
+};
 
 export function AppSidebar({ user, session, onLogout, ...props }: AppSidebarProps) {
+  const ownedOrganizations = useQuery({
+    queryKey: ["organizations", "owned"],
+    queryFn: async () => {
+      const response = await api.listOwnedOrganizations();
+      if (!response.success || !response.data) {
+        throw new Error(response.message ?? "Unable to load owned organizations");
+      }
+      return response.data;
+    },
+  });
+  const ownsOrganization = (ownedOrganizations.data?.length ?? 0) > 0;
+  const canManageAcademic =
+    Boolean(session.session.activeOrganizationId) &&
+    ["owner", "admin"].includes(session.session.activeOrganizationRole ?? "");
+  const instituteItems = [
+    ...(ownsOrganization ? [organizationItem] : []),
+    ...(canManageAcademic ? [academicItem] : []),
+  ];
+
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
@@ -79,10 +104,7 @@ export function AppSidebar({ user, session, onLogout, ...props }: AppSidebarProp
       </SidebarHeader>
       <SidebarContent>
         <NavMain label="Overview" items={overviewItems} />
-        {session.session.activeOrganizationId &&
-          ["owner", "admin"].includes(session.session.activeOrganizationRole ?? "") && (
-            <NavMain label="Institute" items={academicItems} />
-          )}
+        {instituteItems.length > 0 && <NavMain label="Institute" items={instituteItems} />}
         {user.role === "admin" && <NavMain label="Administration" items={adminItems} />}
       </SidebarContent>
       <SidebarFooter>

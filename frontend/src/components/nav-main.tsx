@@ -11,7 +11,7 @@ import {
 
 interface NavItem {
   title: string;
-  url: "/dashboard" | "/academic" | "/admin/organizations" | "/admin/users";
+  url: "/dashboard" | "/organization" | "/academic" | "/admin/organizations" | "/admin/users";
   icon: LucideIcon;
 }
 

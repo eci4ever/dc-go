@@ -3,6 +3,7 @@ package organization
 import (
 	"context"
 	"errors"
+	"io"
 	"log/slog"
 	"time"
 
@@ -44,6 +45,10 @@ func (s *Service) List(ctx context.Context, userID string) ([]Organization, erro
 	return s.repo.ListByUserID(ctx, userID)
 }
 
+func (s *Service) ListOwned(ctx context.Context, userID string) ([]Organization, error) {
+	return s.repo.ListOwnedByUserID(ctx, userID)
+}
+
 func (s *Service) AdminList(ctx context.Context) ([]Organization, error) {
 	return s.repo.ListAll(ctx)
 }
@@ -56,6 +61,10 @@ func (s *Service) AdminUpdate(ctx context.Context, id string, req UpdateOrgReque
 	return s.repo.Update(ctx, id, req.Name, req.Slug, req.Logo)
 }
 
+func (s *Service) AdminSetOwner(ctx context.Context, id string, req SetOwnerRequest) (OrganizationOwner, error) {
+	return s.repo.SetOwner(ctx, id, req.UserID)
+}
+
 func (s *Service) AdminDelete(ctx context.Context, id string) error {
 	return s.delete(ctx, id)
 }
@@ -65,6 +74,13 @@ func (s *Service) Update(ctx context.Context, id, actorID string, req UpdateOrgR
 		return Organization{}, err
 	}
 	return s.repo.Update(ctx, id, req.Name, req.Slug, req.Logo)
+}
+
+func (s *Service) OwnerUploadLogo(ctx context.Context, id, actorID string, reader io.Reader, size int64) (Organization, error) {
+	if err := s.requireRole(ctx, id, actorID, "owner"); err != nil {
+		return Organization{}, err
+	}
+	return s.UploadLogo(ctx, id, reader, size)
 }
 
 func (s *Service) Delete(ctx context.Context, id, actorID string) error {
@@ -112,6 +128,13 @@ func (s *Service) UpdateMemberRole(ctx context.Context, orgID, userID, actorID, 
 	if err := s.requireRole(ctx, orgID, actorID, "owner"); err != nil {
 		return err
 	}
+	target, err := s.repo.GetMember(ctx, orgID, userID)
+	if err != nil {
+		return err
+	}
+	if target.Role == "owner" {
+		return ErrOwnerProtected
+	}
 	return s.repo.UpdateMemberRole(ctx, orgID, userID, role)
 }
 
@@ -120,6 +143,13 @@ func (s *Service) RemoveMember(ctx context.Context, orgID, userID, actorID strin
 		if err := s.requireRole(ctx, orgID, actorID, "owner"); err != nil {
 			return err
 		}
+	}
+	target, err := s.repo.GetMember(ctx, orgID, userID)
+	if err != nil {
+		return err
+	}
+	if target.Role == "owner" {
+		return ErrOwnerProtected
 	}
 	return s.repo.RemoveMember(ctx, orgID, userID)
 }
